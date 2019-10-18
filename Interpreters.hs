@@ -60,7 +60,7 @@ depth (App t1 t2) = depth t1 + depth t2
 -- TODO:
 size :: Term -> Integer
 size = undefined
-
+-}
 ------------------
 --- Evaluation ---
 ------------------
@@ -70,8 +70,10 @@ shift target t = f 0 t
   where
     f :: Int -> Term -> Term
     f i (Var x) = if x >= i then Var (x + target) else Var x
-    f i (Abs v t1) = Abs v $ f (i + 1) t1
+    f i (Abs v ty t1) = Abs v ty $ f (i + 1) t1
     f i (App t1 t2) = App (f i t1) (f i t2)
+    f i Tru = Tru
+    f i Fls = Fls
 
 {-
 Substitution Rules:
@@ -85,18 +87,20 @@ Substitution Rules:
 [1 -> 2]\.1 = \.2
 -}
 
-subst :: DeBruijn -> NewTerm -> OriginalTerm -> Term
+subst :: DeBruijn -> Term -> Term -> Term
 subst j s t = f 0 s t
-  where f :: DeBruijn -> NewTerm -> Term -> Term
+  where f :: DeBruijn -> Term -> Term -> Term
         f c s' (Var x) = if x == j + c then s' else Var x
-        f c s' (Abs v t) = Abs v (f (c+1) (shift c s') t)
+        f c s' (Abs v ty t) = Abs v ty (f (c+1) (shift c s') t)
         f c s' (App t1 t2) = App (f c s' t1) (f c s' t2)
 
-substTop :: NewTerm -> OriginalTerm -> Term
+substTop :: Term -> Term -> Term
 substTop s t = shift (-1) (subst 0 (shift 1 s) t)
 
 isVal :: Context -> Term -> Bool
-isVal _ (Abs _ _) = True
+isVal _ (Abs _ _ _) = True
+isVal _ Tru = True
+isVal _ Fls = True
 isVal _ _ = False
 
 
@@ -104,8 +108,8 @@ isVal _ _ = False
 singleEval :: Context -> Term -> Maybe Term
 singleEval ctx t =
   case t of
-    (App (Abs x t12) v2) | isVal ctx v2 -> return $ substTop v2 t12
-    (App v1@(Abs _ _) t2) -> App v1 <$> singleEval ctx t2
+    (App (Abs x _ t12) v2) | isVal ctx v2 -> return $ substTop v2 t12
+    (App v1@(Abs _ _ _) t2) -> App v1 <$> singleEval ctx t2
     (App t1 t2) -> flip App t2 <$> singleEval ctx t1
     _ -> Nothing
 
@@ -115,9 +119,34 @@ multiStepEval ctx t = maybe t (multiStepEval ctx) (singleEval ctx t)
 
 -- Big Step Evaluation Function
 bigStepEval :: Context -> Term -> Term
-bigStepEval _ t@(Abs _ _) = t
+bigStepEval _ t@(Abs _ _ _) = t
 bigStepEval ctx (App t1 t2) =
-  let (Abs _ t12) = bigStepEval ctx t1
+  let (Abs _ _ t12) = bigStepEval ctx t1
       v2  = bigStepEval ctx t2
   in bigStepEval ctx $ substTop v2 t12
--}
+bigStepEval _ Tru = Tru
+bigStepEval _ Fls = Fls
+
+exp0 :: Term
+exp0 = Tru
+
+ctx0 :: Context
+ctx0 = []
+
+exp1 :: Term
+exp1 = Var 0
+
+ctx1 :: Context
+ctx1 = [("x", VarBind Boo)]
+
+exp2 :: Term
+exp2 = (Abs "x" Boo (Var 0))
+
+ctx2 :: Context
+ctx2 = []
+
+exp3 :: Term
+exp3 = (Abs "x" Boo (Abs "p" Boo (Var 0)))
+
+exp4 :: Term
+exp4 = (App (App (Abs "x" Boo (Abs "p" Boo (Var 0))) Tru) Fls)
