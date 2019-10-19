@@ -2,11 +2,13 @@ module TypedLambdaCalcInitial.Interpreters where
 --module TypedLambdaCalcInitial.Interpreters (pretty, depth, size, multiStepEval, bigStepEval) where
 
 import Control.Monad.Reader
+
+import Data.Bifunctor
 import Data.List
 
 import TypedLambdaCalcInitial.Types 
 
-{-
+
 ----------------------
 --- Pretty Printer ---
 ----------------------
@@ -20,26 +22,28 @@ appendPrime str i = str ++ show (primeSieve !! i)
 pickFreshName :: Context -> String -> (Context, String)
 pickFreshName ctx str = f ctx str 0
   where f :: Context -> String -> Int -> (Context, String)
-        f ctx' str' i = let res = find (== str') ctx'
+        f ctx' str' i = let res = find ((== str') . fst) ctx'
                         in case res of
-                             Nothing -> (str':ctx', str')
+                             Nothing -> (Snoc ctx' (str', NameBind), str')
                              Just _  -> let str'' = appendPrime str i
                                         in f ctx' str'' (i+1)
 
 pretty :: Term -> String
-pretty t = runReader (f t) []
+pretty t = runReader (f t) Nil
   where
     f :: Term -> Reader Context String
     f (App t1 t2) = do
       t1' <- f t1
       t2' <- f t2
       return $ "(" ++ t1' ++ " " ++ t2' ++ ")"
-    f (Var x) = ask >>= \ctx -> return (ctx !! x)
-    f (Abs x  t1) = do
+    f (Var x) = ask >>= \ctx -> return . fst $ ctx !!! x
+    f (Abs x ty t1) = do
       ctx <- ask
       let (ctx', x') = pickFreshName ctx x
       t1' <- local (const ctx') (f t1)
       return $ "(lambda " ++ x' ++ ". " ++ t1' ++ ")"
+    f Tru = return "True"
+    f Fls = return "False"
 
 
 -------------
@@ -49,8 +53,10 @@ pretty t = runReader (f t) []
 -- TOD0:
 depth :: Term -> Integer
 depth (Var _) = 0
-depth (Abs _ t1) = 1 + depth t1
+depth (Abs _ _ t1) = 1 + depth t1
 depth (App t1 t2) = depth t1 + depth t2
+depth Tru = 0
+depth Fls = 0
 
 
 ------------
@@ -60,7 +66,8 @@ depth (App t1 t2) = depth t1 + depth t2
 -- TODO:
 size :: Term -> Integer
 size = undefined
--}
+
+
 ------------------
 --- Evaluation ---
 ------------------
@@ -93,6 +100,8 @@ subst j s t = f 0 s t
         f c s' (Var x) = if x == j + c then s' else Var x
         f c s' (Abs v ty t) = Abs v ty (f (c+1) (shift c s') t)
         f c s' (App t1 t2) = App (f c s' t1) (f c s' t2)
+        f c s' Tru = Tru
+        f c s' Fls = Fls
 
 substTop :: Term -> Term -> Term
 substTop s t = shift (-1) (subst 0 (shift 1 s) t)
@@ -126,27 +135,3 @@ bigStepEval ctx (App t1 t2) =
   in bigStepEval ctx $ substTop v2 t12
 bigStepEval _ Tru = Tru
 bigStepEval _ Fls = Fls
-
-exp0 :: Term
-exp0 = Tru
-
-ctx0 :: Context
-ctx0 = []
-
-exp1 :: Term
-exp1 = Var 0
-
-ctx1 :: Context
-ctx1 = [("x", VarBind Boo)]
-
-exp2 :: Term
-exp2 = (Abs "x" Boo (Var 0))
-
-ctx2 :: Context
-ctx2 = []
-
-exp3 :: Term
-exp3 = (Abs "x" Boo (Abs "p" Boo (Var 0)))
-
-exp4 :: Term
-exp4 = (App (App (Abs "x" Boo (Abs "p" Boo (Var 0))) Tru) Fls)

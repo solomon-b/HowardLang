@@ -68,9 +68,9 @@ hoistError (Right a) = return a
 
 printResult :: (Show a, Show b) => Either a b -> H.InputT IO ()
 printResult = liftIO . either print print
-{-
+
 interpret' :: String -> Either (ParseErrorBundle String Void) Term
-interpret' str = bigStepEval [] <$> runParse str
+interpret' str = bigStepEval Nil <$> runParse str
 
 repl :: IO ()
 repl = runRepl loop
@@ -82,5 +82,3 @@ repl = runRepl loop
             Just str' ->
               let result = either errorBundlePretty id (pretty <$> interpret' str')
               in outputStrLn result >> loop
-
--}
