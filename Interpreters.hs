@@ -6,7 +6,7 @@ import Control.Monad.Reader
 import Data.Bifunctor
 import Data.List
 
-import TypedLambdaCalcInitial.Types 
+import TypedLambdaCalcInitial.Types
 
 
 ----------------------
@@ -19,24 +19,24 @@ primeSieve = 2 : [i | i <- [3..], and [rem i p > 0 | p <- takeWhile (\p -> p^2 <
 appendPrime :: String -> Int -> String
 appendPrime str i = str ++ show (primeSieve !! i)
 
-pickFreshName :: Context -> String -> (Context, String)
+pickFreshName :: Bindings -> String -> (Bindings, String)
 pickFreshName ctx str = f ctx str 0
-  where f :: Context -> String -> Int -> (Context, String)
-        f ctx' str' i = let res = find ((== str') . fst) ctx'
+  where f :: Bindings -> String -> Int -> (Bindings, String)
+        f ctx' str' i = let res = find (== str') ctx'
                         in case res of
-                             Nothing -> (Snoc ctx' (str', NameBind), str')
+                             Nothing -> (Snoc ctx' str', str')
                              Just _  -> let str'' = appendPrime str i
                                         in f ctx' str'' (i+1)
 
 pretty :: Term -> String
 pretty t = runReader (f t) Nil
   where
-    f :: Term -> Reader Context String
+    f :: Term -> Reader Bindings String
     f (App t1 t2) = do
       t1' <- f t1
       t2' <- f t2
       return $ "(" ++ t1' ++ " " ++ t2' ++ ")"
-    f (Var x) = ask >>= \ctx -> return . fst $ ctx !!! x
+    f (Var x) = ask >>= \ctx -> return $ ctx !!! x
     f (Abs x ty t1) = do
       ctx <- ask
       let (ctx', x') = pickFreshName ctx x
@@ -135,3 +135,4 @@ bigStepEval ctx (App t1 t2) =
   in bigStepEval ctx $ substTop v2 t12
 bigStepEval _ Tru = Tru
 bigStepEval _ Fls = Fls
+bigStepEval _ x = error $ show x

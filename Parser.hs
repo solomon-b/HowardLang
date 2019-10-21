@@ -4,6 +4,7 @@ import Control.Applicative hiding (some)
 import Control.Monad.Reader
 
 import Data.Functor.Identity
+import Data.List
 import Data.Void
 
 import Text.Megaparsec
@@ -12,7 +13,9 @@ import qualified Text.Megaparsec.Char.Lexer as L
 
 import TypedLambdaCalcInitial.Types
 
-type Parser a = ParsecT Void String (Reader Context) a
+type Parser a = ParsecT Void String (Reader Bindings) a
+type ParseErr = ParseErrorBundle String Void
+
 
 sc :: Parser ()
 sc = L.space space1 lineCmnt blockCmnt
@@ -30,7 +33,7 @@ parserVar :: Parser Term
 parserVar = do
   env <- ask
   val <- some letterChar
-  return $ maybe (Var 0) Var (getIndexFromContext env val)
+  return $ maybe (Var 0) Var $ (find (== val) env) >>= snocIndex env
 
 parserTru :: Parser Term
 parserTru = symbol "True" >> pure Tru
@@ -41,11 +44,11 @@ parserFls = symbol "False" >> pure Fls
 parserBools :: Parser Term
 parserBools = parserFls <|> parserTru
 
-updateEnv :: Varname -> Context -> Context
-updateEnv var env = Snoc env (var, NameBind)
+updateEnv :: Varname -> Bindings -> Bindings
+updateEnv var env = Snoc env var
 
 parseBool :: Parser Type
-parseBool = symbol "Bool" *> pure Boo
+parseBool = symbol "Bool" *> pure BoolT
 
 parseArrow :: Parser Type
 parseArrow = do
@@ -54,7 +57,7 @@ parseArrow = do
   symbol "->" *> pure ()
   sc
   b <- parseBool <|> parens parseArrow
-  return (Func a b)
+  return (FuncT a b)
 
 parseTypeSig :: Parser Type
 parseTypeSig = try parseArrow <|> parseBool
@@ -81,17 +84,8 @@ parserTerm = foldl1 App <$> (  parserAbs
                            <|> parens parserTerm
                             ) `sepBy1` sc
 
-runParse :: String -> Either (ParseErrorBundle String Void) Term
+runParse :: String -> Either ParseErr Term
 runParse = runIdentity . flip runReaderT Nil . runParserT parserTerm mempty
 
 run p = runIdentity . flip runReaderT Nil . runParserT p mempty
-
-
-
-
-execReaderT :: Monad m => ReaderT r m a -> r -> m r
-execReaderT rma env = runReaderT (rma >> ask) env
-
-execParse :: String -> Context
-execParse = runIdentity . flip execReaderT Nil . runParserT parserTerm mempty
 

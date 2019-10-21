@@ -70,7 +70,7 @@ printResult :: (Show a, Show b) => Either a b -> H.InputT IO ()
 printResult = liftIO . either print print
 
 interpret' :: String -> Either (ParseErrorBundle String Void) Term
-interpret' str = bigStepEval Nil <$> runParse str
+interpret' str = multiStepEval Nil <$> runParse str
 
 repl :: IO ()
 repl = runRepl loop
