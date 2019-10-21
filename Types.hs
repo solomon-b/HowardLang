@@ -1,6 +1,12 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DeriveFoldable #-}
 module TypedLambdaCalcInitial.Types where
 
+import Control.Monad.Except
+import Control.Monad.Reader
 import Data.List
 
 type Varname = String
@@ -16,20 +22,17 @@ data Term
   | If Term Term Term
   deriving Show
 
-data Type = Func Type Type | Boo
+data TypeErr = TypeError deriving Show
+data Type = FuncT Type Type | BoolT
   deriving (Eq, Show)
 
-data Binding = NameBind | VarBind Type
-  deriving (Eq, Show)
-
-type Context = SnocList (Varname, Binding)
+type Bindings = SnocList Varname
+type Context = SnocList (Varname, Type)
 
 
 ----------------
 --- SnocList ---
 ----------------
--- This is used for more natural lookups of DeBruijn indices
--- from the context.
 
 data SnocList a = Nil | Snoc (SnocList a) a
   deriving (Show, Foldable)
@@ -50,37 +53,51 @@ snocIndex xs var = f xs var 0
 getIndexFromContext :: Context -> Varname -> Maybe DeBruijn
 getIndexFromContext ctx var = find (\el -> var == fst el) ctx >>= snocIndex ctx
 
+
 ---------------------
 --- Type Checking ---
 ---------------------
 -- TODO: Move this into its own module?
 
-addBinding :: Context -> Varname -> Binding -> Context
+
+newtype TypecheckerT m a =
+  TypecheckerT { unTypecheckerT :: ExceptT TypeErr (ReaderT Context m) a }
+  deriving (Functor, Applicative, Monad, MonadReader Context, MonadError TypeErr)
+
+runTypecheckerT :: Context -> TypecheckerT m a -> m (Either TypeErr a)
+runTypecheckerT gamma = flip runReaderT gamma . runExceptT . unTypecheckerT
+
+addBinding :: Context -> Varname -> Type -> Context
 addBinding ctx var bnd = Snoc ctx (var, bnd)
 
 -- TODO: Make these safer
 -- UNSAFE!
-getTypeFromContext :: Context -> DeBruijn -> Type
-getTypeFromContext ctx i =
-  case getBinding ctx i of
-    VarBind t -> t
-    _ -> error "Wrong kind of binding for variable"
-
--- UNSAFE!
-getBinding :: Context -> Int -> Binding
+getBinding :: Context -> Int -> Type
 getBinding xs i = snd $ xs !!! i
 
-typeof :: Context -> Term -> Type
-typeof ctx (Var i) = getTypeFromContext ctx i
-typeof ctx (Abs var ty t2) = Func ty (typeof (Snoc ctx (var, VarBind ty)) t2)
-typeof ctx (App t1 t2) =
-  let (Func ty1 ty2) = typeof ctx t1
-  in if typeof ctx t2 == ty1
-     then ty2
-     else error "ill typed yo"
-typeof ctx Tru = Boo
-typeof ctx Fls = Boo
-typeof ctx (If t1 t2 t3) | typeof ctx t1 == Boo = if typeof ctx t2 == typeof ctx t3
-                                                  then typeof ctx t2
-                                                  else error "ill typed yo"
-typeof _ _ = error "ill typed yo"
+
+typecheck ::
+  ( MonadError TypeErr m
+  , MonadReader Context m) =>
+  Term -> m Type
+typecheck (Var i) = asks (flip getBinding i)
+typecheck (Abs var ty t2) = do
+  ty2 <- local (flip Snoc (var, ty)) (typecheck t2)
+  return $ FuncT ty ty2
+typecheck (App t1 t2) = typecheck t1 >>= \case
+  FuncT ty1 ty2 -> do
+    ty1' <- typecheck t2
+    if ty1' == ty1
+      then return ty2
+      else throwError TypeError
+  _ -> throwError TypeError
+typecheck Tru = return BoolT
+typecheck Fls = return BoolT
+typecheck (If t1 t2 t3) = typecheck t1 >>= \case
+  BoolT -> do
+    ty2 <- typecheck t2
+    ty3 <- typecheck t3
+    if ty2 == ty3
+      then typecheck t2
+      else throwError TypeError
+  _ -> throwError TypeError
