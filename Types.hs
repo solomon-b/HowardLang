@@ -6,6 +6,7 @@
 module TypedLambdaCalcInitial.Types where
 
 import Control.Monad.Except
+import Control.Monad.Identity
 import Control.Monad.Reader
 import Data.List
 
@@ -60,12 +61,18 @@ getIndexFromContext ctx var = find (\el -> var == fst el) ctx >>= snocIndex ctx
 -- TODO: Move this into its own module?
 
 
-newtype TypecheckerT m a =
-  TypecheckerT { unTypecheckerT :: ExceptT TypeErr (ReaderT Context m) a }
+newtype TypecheckT m a =
+  TypecheckT { unTypecheckT :: ExceptT TypeErr (ReaderT Context m) a }
   deriving (Functor, Applicative, Monad, MonadReader Context, MonadError TypeErr)
 
-runTypecheckerT :: Context -> TypecheckerT m a -> m (Either TypeErr a)
-runTypecheckerT gamma = flip runReaderT gamma . runExceptT . unTypecheckerT
+type TypecheckM a = TypecheckT Identity a
+
+runTypecheckT :: Context -> TypecheckT m a -> m (Either TypeErr a)
+runTypecheckT gamma = flip runReaderT gamma . runExceptT . unTypecheckT
+
+runTypecheckM :: Context -> TypecheckT Identity a -> Either TypeErr a
+runTypecheckM gamma = runIdentity . runTypecheckT gamma
+
 
 addBinding :: Context -> Varname -> Type -> Context
 addBinding ctx var bnd = Snoc ctx (var, bnd)

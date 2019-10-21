@@ -13,6 +13,9 @@ import qualified Text.Megaparsec.Char.Lexer as L
 
 import TypedLambdaCalcInitial.Types
 
+-- TODO: look into deriving MonadParsec
+-- newtype Parser a = Parser { runParser :: ParsecT Void String (Reader Bindings) a }
+--   deriving MonadParsec
 type Parser a = ParsecT Void String (Reader Bindings) a
 type ParseErr = ParseErrorBundle String Void
 

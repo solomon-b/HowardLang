@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE KindSignatures #-}
@@ -59,26 +61,36 @@ instance MonadRepl m => MonadRepl (ExceptT e m) where
     outputStr = lift . outputStr
     outputStrLn = lift . outputStrLn
 
+class ShowE e where
+  showE :: e -> String
+
+instance ShowE () where
+  showE = show
+
+instance ShowE TypeErr where
+  showE = show
+
+instance ShowE ParseErr where
+  showE = errorBundlePretty
+
 abort :: (MonadRepl m) => m a
 abort = throwIO H.Interrupt
 
-hoistError :: (MonadRepl m, Show e) => Either e a -> m a
-hoistError (Left err) = outputStrLn (show err) >> abort
+hoistError :: (MonadRepl m, ShowE e) => Either e a -> m a
+hoistError (Left err) = outputStrLn (showE err) >> abort
 hoistError (Right a) = return a
 
-printResult :: (Show a, Show b) => Either a b -> H.InputT IO ()
-printResult = liftIO . either print print
-
-interpret' :: String -> Either (ParseErrorBundle String Void) Term
-interpret' str = multiStepEval Nil <$> runParse str
-
+-- TODO: How the fuck do I handle interrupts correctly????
 repl :: IO ()
 repl = runRepl loop
   where loop :: MonadRepl m => m ()
-        loop = forever $ do
+        loop = do
           str <- getInputLine "> "
           case str of
             Nothing -> abort
-            Just str' ->
-              let result = either errorBundlePretty id (pretty <$> interpret' str')
-              in outputStrLn result >> loop
+            Just str' -> do
+              parsed  <- hoistError $ runParse str'
+              checked <- hoistError $ runTypecheckM Nil (typecheck parsed)
+              reduced <- hoistError $ (Right $ multiStepEval Nil parsed :: Either () Term)
+              outputStrLn $ pretty reduced
+              loop 
