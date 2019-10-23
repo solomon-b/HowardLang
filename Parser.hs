@@ -17,7 +17,6 @@ import TypedLambdaCalcInitial.Types
 -- newtype Parser a = Parser { runParser :: ParsecT Void String (Reader Bindings) a }
 --   deriving MonadParsec
 type Parser a = ParsecT Void String (Reader Bindings) a
-type ParseErr = ParseErrorBundle String Void
 
 
 sc :: Parser ()
@@ -87,8 +86,11 @@ parserTerm = foldl1 App <$> (  parserAbs
                            <|> parens parserTerm
                             ) `sepBy1` sc
 
-runParse :: String -> Either ParseErr Term
-runParse = runIdentity . flip runReaderT Nil . runParserT parserTerm mempty
+handleParseErr :: Either ParseErr Term -> Either Err Term
+handleParseErr val = either (Left . P) Right val
+
+runParse :: String -> Either Err Term
+runParse = handleParseErr . runIdentity . flip runReaderT Nil . runParserT parserTerm mempty
 
 run p = runIdentity . flip runReaderT Nil . runParserT p mempty
 

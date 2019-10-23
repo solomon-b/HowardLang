@@ -5,10 +5,14 @@
 {-# LANGUAGE DeriveFoldable #-}
 module TypedLambdaCalcInitial.Types where
 
+import Control.Exception (Exception)
 import Control.Monad.Except
 import Control.Monad.Identity
 import Control.Monad.Reader
 import Data.List
+import Data.Void
+
+import Text.Megaparsec
 
 type Varname = String
 type DeBruijn = Int
@@ -23,12 +27,20 @@ data Term
   | If Term Term Term
   deriving Show
 
-data TypeErr = TypeError deriving Show
 data Type = FuncT Type Type | BoolT
   deriving (Eq, Show)
 
+-- | Context Types
 type Bindings = SnocList Varname
 type Context = SnocList (Varname, Type)
+
+-- | Error Types
+type ParseErr = ParseErrorBundle String Void
+data TypeErr = TypeError deriving Show
+
+data Err = P ParseErr | T TypeErr deriving Show
+
+instance Exception Err
 
 
 ----------------
@@ -62,15 +74,15 @@ getIndexFromContext ctx var = find (\el -> var == fst el) ctx >>= snocIndex ctx
 
 
 newtype TypecheckT m a =
-  TypecheckT { unTypecheckT :: ExceptT TypeErr (ReaderT Context m) a }
-  deriving (Functor, Applicative, Monad, MonadReader Context, MonadError TypeErr)
+  TypecheckT { unTypecheckT :: ExceptT Err (ReaderT Context m) a }
+  deriving (Functor, Applicative, Monad, MonadReader Context, MonadError Err)
 
 type TypecheckM a = TypecheckT Identity a
 
-runTypecheckT :: Context -> TypecheckT m a -> m (Either TypeErr a)
+runTypecheckT :: Context -> TypecheckT m a -> m (Either Err a)
 runTypecheckT gamma = flip runReaderT gamma . runExceptT . unTypecheckT
 
-runTypecheckM :: Context -> TypecheckT Identity a -> Either TypeErr a
+runTypecheckM :: Context -> TypecheckT Identity a -> Either Err a
 runTypecheckM gamma = runIdentity . runTypecheckT gamma
 
 
@@ -84,7 +96,7 @@ getBinding xs i = snd $ xs !!! i
 
 
 typecheck ::
-  ( MonadError TypeErr m
+  ( MonadError Err m
   , MonadReader Context m) =>
   Term -> m Type
 typecheck (Var i) = asks (flip getBinding i)
@@ -96,8 +108,8 @@ typecheck (App t1 t2) = typecheck t1 >>= \case
     ty1' <- typecheck t2
     if ty1' == ty1
       then return ty2
-      else throwError TypeError
-  _ -> throwError TypeError
+      else throwError $ T TypeError
+  _ -> throwError $ T TypeError
 typecheck Tru = return BoolT
 typecheck Fls = return BoolT
 typecheck (If t1 t2 t3) = typecheck t1 >>= \case
@@ -106,5 +118,5 @@ typecheck (If t1 t2 t3) = typecheck t1 >>= \case
     ty3 <- typecheck t3
     if ty2 == ty3
       then typecheck t2
-      else throwError TypeError
-  _ -> throwError TypeError
+      else throwError $ T TypeError
+  _ -> throwError $ T TypeError

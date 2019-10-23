@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -6,7 +7,9 @@
 --module TypedLambdaCalcInitial.Repl (repl) where
 module TypedLambdaCalcInitial.Repl where
 
+import Control.Exception (Exception)
 import Control.Monad
+import Control.Monad.Except
 import Control.Monad.IO.Class
 import Control.Monad.Trans
 import Control.Monad.Trans.Maybe
@@ -67,6 +70,10 @@ class ShowE e where
 instance ShowE () where
   showE = show
 
+instance ShowE Err where
+  showE (T err) = show err
+  showE (P err) = show err
+
 instance ShowE TypeErr where
   showE = show
 
@@ -76,11 +83,18 @@ instance ShowE ParseErr where
 abort :: (MonadRepl m) => m a
 abort = throwIO H.Interrupt
 
-hoistError :: (MonadRepl m, ShowE e) => Either e a -> m a
-hoistError (Left err) = outputStrLn (showE err) >> abort
+hoistError :: (MonadRepl m, ShowE e, MonadError e m) => Either e a -> m a
+hoistError (Left err) = outputStrLn (showE err) >> throwIO ReplInterrupt
 hoistError (Right a) = return a
 
--- TODO: How the fuck do I handle interrupts correctly????
+data ReplInterrupt = ReplInterrupt
+  deriving Show
+
+instance Exception ReplInterrupt
+
+handleReplInterrupt :: MonadRepl m => ReplInterrupt -> m ()
+handleReplInterrupt _ = pure ()
+
 repl :: IO ()
 repl = runRepl loop
   where loop :: MonadRepl m => m ()
@@ -89,8 +103,10 @@ repl = runRepl loop
           case str of
             Nothing -> abort
             Just str' -> do
-              parsed  <- hoistError $ runParse str'
-              checked <- hoistError $ runTypecheckM Nil (typecheck parsed)
-              reduced <- hoistError $ (Right $ multiStepEval Nil parsed :: Either () Term)
-              outputStrLn $ pretty reduced
-              loop 
+              let res = do
+                    parsed  <- runParse str'
+                    checked <- runTypecheckM Nil (typecheck parsed)
+                    reduced <- (Right $ multiStepEval Nil parsed :: Either Err Term)
+                    return $ pretty reduced
+              either (outputStrLn . showE) outputStrLn res
+              loop
