@@ -44,11 +44,11 @@ pretty t = runReader (f t) Nil
       t2' <- f t2
       return $ "(" ++ t1' ++ " " ++ t2' ++ ")"
     f (Var x) = ask >>= \ctx -> return $ ctx !!! x
-    f (Abs x _ t1) = do
+    f (Abs x ty t1) = do
       ctx <- ask
       let (ctx', x') = pickFreshName ctx x
       t1' <- local (const ctx') (f t1)
-      return $ "(lambda " ++ x' ++ ". " ++ t1' ++ ")"
+      return $ "(lambda " ++ x' ++ " : " ++ show ty ++ ". " ++ t1' ++ ")"
     f Tru = return "True"
     f Fls = return "False"
     f Z = return "0"
@@ -131,9 +131,11 @@ substTop s t = shift (-1) (subst 0 (shift 1 s) t)
 
 isVal :: Context -> Term -> Bool
 isVal _ (Abs _ _ _) = True
-isVal _ Tru = True
-isVal _ Fls = True
-isVal _ _ = False
+isVal _ Tru   = True
+isVal _ Fls   = True
+isVal _ Z     = True
+isVal _ (S _) = True
+isVal _ _     = False
 
 
 -- Single Step Evaluation Function

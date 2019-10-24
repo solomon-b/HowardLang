@@ -89,6 +89,7 @@ parserAbs = do
 parserTerm :: Parser Term
 parserTerm = foldl1 App <$> (  parserAbs
                            <|> parserBools
+                           <|> parserNat
                            <|> parserVar
                            <|> parens parserTerm
                             ) `sepBy1` sc
