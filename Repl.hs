@@ -1,3 +1,6 @@
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -110,3 +113,25 @@ repl = runRepl loop
                     return $ pretty reduced
               either (outputStrLn . showE) outputStrLn res
               loop
+{-
+data LC a
+   = Var' a
+   | App' (LC a) (LC a)
+   | Abs' (LC (Maybe a))
+   deriving (Functor, Foldable, Traversable)
+
+instance Applicative LC where
+  pure = Var'
+  (<*>) = ap
+
+instance Monad LC where
+  Var' a >>= f = f a
+  App' l r >>= f = App' (l >>= f) (r >>= f)
+  Abs' k >>= f = Abs' $ k >>= \case
+    Nothing -> pure Nothing
+    Just a -> Just <$> f a
+
+lam :: Eq a => a -> LC a -> LC a
+lam v b = Abs' $ bind v <$> b where
+  bind v u = u <$ guard (u /= v)
+-}

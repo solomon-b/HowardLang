@@ -1,8 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE DeriveFoldable #-}
 module TypedLambdaCalcInitial.Types where
 
 import Control.Exception (Exception)
@@ -25,9 +20,11 @@ data Term
   | Tru
   | Fls
   | If Term Term Term
+  | Z
+  | S Term
   deriving Show
 
-data Type = FuncT Type Type | BoolT
+data Type = FuncT Type Type | BoolT | NatT
   deriving (Eq, Show)
 
 -- | Context Types
@@ -52,9 +49,9 @@ data SnocList a = Nil | Snoc (SnocList a) a
 
 infixl 9 !!!
 (!!!) :: SnocList a -> Int -> a
-(!!!) Nil i = error "Index too large."
-(!!!) (Snoc xs x) 0 = x
-(!!!) (Snoc xs x) i = xs !!! (i - 1)
+(!!!) Nil _ = error "Index too large."
+(!!!) (Snoc _ x) 0 = x
+(!!!) (Snoc xs _) i = xs !!! (i - 1)
 
 snocIndex :: Eq a => SnocList a -> a -> Maybe Int
 snocIndex xs var = f xs var 0
@@ -119,4 +116,8 @@ typecheck (If t1 t2 t3) = typecheck t1 >>= \case
     if ty2 == ty3
       then typecheck t2
       else throwError $ T TypeError
+  _ -> throwError $ T TypeError
+typecheck Z = return NatT
+typecheck (S t) = typecheck t >>= \case
+  NatT -> return NatT
   _ -> throwError $ T TypeError

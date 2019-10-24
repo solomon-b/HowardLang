@@ -43,38 +43,45 @@ parserTru = symbol "True" >> pure Tru
 parserFls :: Parser Term
 parserFls = symbol "False" >> pure Fls
 
+parserNat :: Parser Term
+parserNat = do
+   digits <- read <$> some digitChar :: Parser Int
+   return . foldr (\a b -> a b) Z $ replicate digits S
+
 parserBools :: Parser Term
 parserBools = parserFls <|> parserTru
 
 updateEnv :: Varname -> Bindings -> Bindings
 updateEnv var env = Snoc env var
 
-parseBool :: Parser Type
-parseBool = symbol "Bool" *> pure BoolT
+parserNatT :: Parser Type
+parserNatT = symbol "Nat" *> pure NatT
 
-parseArrow :: Parser Type
-parseArrow = do
-  a <- parseBool <|> parens parseArrow
+parserBoolT :: Parser Type
+parserBoolT = symbol "Bool" *> pure BoolT
+
+parserArrowT :: Parser Type
+parserArrowT = do
+  a <- parserNatT <|> parserBoolT <|> parens parserArrowT
   sc
   symbol "->" *> pure ()
   sc
-  b <- parseBool <|> parens parseArrow
+  b <- parserNatT <|> parserBoolT <|> parens parserArrowT
   return (FuncT a b)
 
-parseTypeSig :: Parser Type
-parseTypeSig = try parseArrow <|> parseBool
+parseType :: Parser Type
+parseType = try parserArrowT <|> parserBoolT <|> parserNatT
 
 parserAbs :: Parser Term
 parserAbs = do
-  env <- ask
-  symbol "\\"
+  void $ symbol "\\"
   sc
   var <- some letterChar
   sc
-  symbol ":"
+  void $ symbol ":"
   sc
-  ty <- parseTypeSig
-  symbol "."
+  ty <- parseType
+  void $ symbol "."
   sc
   term <- local (updateEnv var) parserTerm
   return (Abs var ty term)
@@ -92,5 +99,6 @@ handleParseErr val = either (Left . P) Right val
 runParse :: String -> Either Err Term
 runParse = handleParseErr . runIdentity . flip runReaderT Nil . runParserT parserTerm mempty
 
+run :: ParsecT e s (ReaderT (SnocList a1) Identity) a2 -> s -> Either (ParseErrorBundle s e) a2
 run p = runIdentity . flip runReaderT Nil . runParserT p mempty
 
