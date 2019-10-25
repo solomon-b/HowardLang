@@ -74,8 +74,8 @@ instance ShowE () where
   showE = show
 
 instance ShowE Err where
-  showE (T err) = show err
-  showE (P err) = show err
+  showE (T err) = showE err
+  showE (P err) = showE err
 
 instance ShowE TypeErr where
   showE = show
