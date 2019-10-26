@@ -122,3 +122,6 @@ typecheck Z = return NatT
 typecheck (S t) = typecheck t >>= \case
   NatT -> return NatT
   _ -> throwError $ T TypeError
+typecheck (Case l m  x n) = typecheck l >>= \case
+  NatT -> return NatT
+  _ -> throwError $ T TypeError

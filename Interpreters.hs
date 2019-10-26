@@ -106,6 +106,7 @@ shift target t = f 0 t
     f _ Z = Z
     f i (S t1) = S (f i t1)
     f i (If t1 t2 t3) = If (f i t1) (f i t2) (f i t3)
+    f i (Case l m x n) = Case (f i l) (f i m) x (f (i + 1) n)
 
 {-
 Substitution Rules:
@@ -130,8 +131,10 @@ subst j s t = f 0 s t
         f c s' (If t1 t2 t3) = If (f c s' t1) (f c s' t2) (f c s' t3)
         f _ _ Z = Z
         f c s' (S t1) = S (f c s' t1)
-        f c s' (Case Z m _ _) = f c s' m
-        f c s' (Case (S _) _ _ n) = f (c+1) s' n
+        f c s' (Case l m x n) = Case (f c s' l)
+                                     (f c s' m)
+                                     x
+                                     (f (c+1) (shift c s') n)
 
 substTop :: Term -> Term -> Term
 substTop s t = shift (-1) (subst 0 (shift 1 s) t)
@@ -141,9 +144,8 @@ isVal _ (Abs _ _ _) = True
 isVal _ Tru   = True
 isVal _ Fls   = True
 isVal _ Z     = True
-isVal _ (S _) = True
+isVal c (S n) = isVal c n
 isVal _ _     = False
-
 
 -- Single Step Evaluation Function
 singleEval :: Context -> Term -> Maybe Term
@@ -154,7 +156,13 @@ singleEval ctx t =
     (App t1 t2) -> flip App t2 <$> singleEval ctx t1
     (If Tru t2 _) -> Just t2
     (If Fls _ t3) -> Just t3
-    (If t1 t2 t3) -> If <$> singleEval ctx t1 <*> Just t2 <*> Just t3
+    (If t1 t2 t3) ->
+      singleEval ctx t1 >>= \t1' -> return $ If t1' t2 t3
+    (S n) | not $ isVal ctx n-> S <$> singleEval ctx n
+    (Case Z m _ _) -> Just m
+    (Case (S l) _ _ n) | isVal ctx l -> return $ substTop l n
+    (Case l m x n) ->
+      singleEval ctx l >>= \l' -> return $ Case l' m x n
     _ -> Nothing
 
 -- Multistep Evaluation Function
@@ -166,12 +174,29 @@ bigStepEval :: Context -> Term -> Term
 bigStepEval _ t@(Abs _ _ _) = t
 bigStepEval ctx (App t1 t2) =
   let (Abs _ _ t12) = bigStepEval ctx t1
-      (If t1' t2' t3') = case bigStepEval ctx t1' of
-                        Tru -> bigStepEval ctx t2'
-                        Fls -> bigStepEval ctx t3'
-                        _   -> undefined
       v2  = bigStepEval ctx t2
   in bigStepEval ctx $ substTop v2 t12
+bigStepEval ctx (If t1' t2' t3') =
+  case bigStepEval ctx t1' of
+    Tru -> bigStepEval ctx t2'
+    Fls -> bigStepEval ctx t3'
+    _   -> undefined
+bigStepEval ctx (Case l m _ n) =
+  case bigStepEval ctx l of
+    Z -> bigStepEval ctx m
+    (S l') -> bigStepEval ctx $ substTop l' n
+    x -> error $ show x
 bigStepEval _ Tru = Tru
 bigStepEval _ Fls = Fls
 bigStepEval _ x = error $ show x
+
+{-
+
+pred =
+(\n:Nat.
+   case n of
+     Z => Z
+     S l => l
+)
+
+-}

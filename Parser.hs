@@ -69,11 +69,14 @@ arrow = void $ symbol "->"
 phatArrow :: Parser ()
 phatArrow = void $ symbol "=>"
 
+pipe :: Parser ()
+pipe = void $ symbol "|"
+
 rword :: String -> Parser ()
 rword w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
 
 rws :: [String]
-rws = ["if", "then", "else", "True", "False", "case", "of", "Zero", "Succ"]
+rws = ["if", "then", "else", "True", "False", "case", "of", "Z", "S", "|"]
 
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)
@@ -131,6 +134,10 @@ parserIf = do
   t3 <- parserTerm
   return $ If t1 t2 t3
 
+parserPeano :: Parser Term
+parserPeano =
+  rword "S" *> (S <$> parserTerm) <|> (rword "Z" *> pure Z)
+
 parserNat :: Parser Term
 parserNat = do
    digits <- fromIntegral <$> integer
@@ -141,11 +148,11 @@ parserCase = do
   rword "case"
   l <- parserTerm
   rword "of"
-  rword "Zero"
+  rword "Z"
   phatArrow
   m <- parserTerm
-  rword "Succ"
-  x <- identifier
+  pipe
+  x <- parensOpt $ rword "S" *> identifier
   phatArrow
   n <- parserTerm
   return $ Case l m x n
@@ -169,9 +176,11 @@ parserAbs = do
 -- True
 parserTerm :: Parser Term
 parserTerm = foldl1 App <$> (  parserIf
+                           <|> parserCase
                            <|> parserAbs
                            <|> parserBool
                            <|> parserNat
+                           -- <|> parserPeano
                            <|> parserVar
                            <|> parens parserTerm
                             ) `sepBy1` sc
