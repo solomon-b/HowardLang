@@ -76,7 +76,7 @@ rword :: String -> Parser ()
 rword w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
 
 rws :: [String]
-rws = ["if", "then", "else", "True", "False", "case", "of", "Z", "S", "|", "Unit"]
+rws = ["if", "then", "else", "True", "False", "case", "of", "Z", "S", "|", "Unit", "as"]
 
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)
@@ -149,6 +149,13 @@ parserNat = do
    digits <- fromIntegral <$> integer
    pure . foldr (\a b -> a b) Z $ replicate digits S
 
+parserAs :: Parser Term
+parserAs = try $ do
+  t1 <- parserVar
+  rword "as"
+  ty <- parseType
+  pure $ As t1 ty
+
 parserCase :: Parser Term
 parserCase = do
   rword "case"
@@ -177,6 +184,9 @@ parserAbs = do
   term <- local (updateEnv var) parserTerm
   pure (Abs var ty term)
 
+parserValues :: Parser Term
+parserValues = parserUnit <|> parserBool <|> parserNat <|> parserPeano <|> parserVar
+
 -- TODO: Fix parser bug when an extra close paren is present:
 -- > ((\x:Bool.True) True)) True
 -- True
@@ -184,11 +194,8 @@ parserTerm :: Parser Term
 parserTerm = foldl1 App <$> (  parserIf
                            <|> parserCase
                            <|> parserAbs
-                           <|> parserUnit
-                           <|> parserBool
-                           <|> parserNat
-                           <|> parserPeano
-                           <|> parserVar
+                           <|> parserAs
+                           <|> parserValues
                            <|> parens parserTerm
                             ) `sepBy1` sc
 

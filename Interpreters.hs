@@ -3,8 +3,6 @@ module TypedLambdaCalcInitial.Interpreters where
 import Control.Monad.Reader
 import Data.List
 
-import Debug.Trace
-
 import TypedLambdaCalcInitial.Types
 
 
@@ -43,24 +41,25 @@ pretty t = runReader (f t) Nil
     f (App t1 t2) = do
       t1' <- f t1
       t2' <- f t2
-      return $ "(" ++ t1' ++ " " ++ t2' ++ ")"
-    f (Var x) = ask >>= \ctx -> return $ ctx !!! x
+      pure $ "(" ++ t1' ++ " " ++ t2' ++ ")"
+    f (Var x) = ask >>= \ctx -> pure $ ctx !!! x
     f (Abs x ty t1) = do
       ctx <- ask
       let (ctx', x') = pickFreshName ctx x
       t1' <- local (const ctx') (f t1)
-      return $ "(lambda " ++ x' ++ " : " ++ show ty ++ ". " ++ t1' ++ ")"
-    f Tru = return "True"
-    f Fls = return "False"
-    f Unit = return "Unit"
-    f Z = return "0"
-    f s@(S _) = return $ showNat s
+      pure $ "(lambda " ++ x' ++ " : " ++ show ty ++ ". " ++ t1' ++ ")"
+    f Tru = pure "True"
+    f Fls = pure "False"
+    f Unit = pure "Unit"
+    f (As t1 ty) = pure $ "(" ++ show t1 ++ " as " ++ show ty ++ ")"
+    f Z = pure "0"
+    f s@(S _) = pure $ showNat s
     f (If t1 t2 t3) = do
       t1' <- f t1
       t2' <- f t2
       t3' <- f t3
-      return $ "If " ++ t1' ++ " then " ++ t2' ++ " else " ++ t3'
-    f (Case l m var n) = return $
+      pure $ "If " ++ t1' ++ " then " ++ t2' ++ " else " ++ t3'
+    f (Case l m var n) = pure $
                          "case " ++ show l ++ " of\\n" ++
                          "Zero => " ++ show m ++ "\\n" ++
                          "Succ " ++ var ++ " => " ++ show n
@@ -80,6 +79,7 @@ depth Tru = 0
 depth Fls = 0
 depth Z = 0
 depth Unit = 0
+depth (As t1 _) = depth t1
 depth (S t) = depth t
 depth (If t1 t2 t3) = depth t1 + depth t2 + depth t3
 depth (Case l m _ n) = depth l + depth m + depth n
@@ -112,6 +112,7 @@ shift target t = f 0 t
     f i (S t1) = S (f i t1)
     f i (If t1 t2 t3) = If (f i t1) (f i t2) (f i t3)
     f i (Case l m x n) = Case (f i l) (f i m) x (f (i + 1) n)
+    f i (As t1 ty) = As (f i t1) ty
 
 {-
 Substitution Rules:
@@ -141,35 +142,38 @@ subst j s t = f 0 s t
                                      (f c s' m)
                                      x
                                      (f (c+1) (shift c s') n)
+        f c s' (As t1 ty) = As (f c s' t1) ty
 
 substTop :: Term -> Term -> Term
 substTop s t = shift (-1) (subst 0 (shift 1 s) t)
 
 isVal :: Context -> Term -> Bool
 isVal _ (Abs _ _ _) = True
-isVal _ Tru   = True
-isVal _ Fls   = True
-isVal _ Z     = True
-isVal _ Unit  = True
-isVal c (S n) = isVal c n
-isVal _ _     = False
+isVal _ Tru         = True
+isVal _ Fls         = True
+isVal _ Z           = True
+isVal _ Unit        = True
+isVal c (S n)       = isVal c n
+isVal c (As t1 _)   = isVal c t1
+isVal _ _           = False
 
 -- Single Step Evaluation Function
 singleEval :: Context -> Term -> Maybe Term
 singleEval ctx t =
   case t of
-    (App (Abs _ _ t12) v2) | isVal ctx v2 -> return $ substTop v2 t12
+    (App (Abs _ _ t12) v2) | isVal ctx v2 -> pure $ substTop v2 t12
     (App v1@(Abs _ _ _) t2) -> App v1 <$> singleEval ctx t2
     (App t1 t2) -> flip App t2 <$> singleEval ctx t1
-    (If Tru t2 _) -> Just t2
-    (If Fls _ t3) -> Just t3
+    (If Tru t2 _) -> pure t2
+    (If Fls _ t3) -> pure t3
     (If t1 t2 t3) ->
-      singleEval ctx t1 >>= \t1' -> return $ If t1' t2 t3
+      singleEval ctx t1 >>= \t1' -> pure $ If t1' t2 t3
     (S n) | not $ isVal ctx n-> S <$> singleEval ctx n
-    (Case Z m _ _) -> Just m
-    (Case (S l) _ _ n) | isVal ctx l -> return $ substTop l n
+    (Case Z m _ _) -> pure m
+    (Case (S l) _ _ n) | isVal ctx l -> pure $ substTop l n
     (Case l m x n) ->
-      singleEval ctx l >>= \l' -> return $ Case l' m x n
+      singleEval ctx l >>= \l' -> pure $ Case l' m x n
+    (As t1 _) -> pure t1
     _ -> Nothing
 
 -- Multistep Evaluation Function
@@ -193,6 +197,7 @@ bigStepEval ctx (Case l m _ n) =
     Z -> bigStepEval ctx m
     (S l') -> bigStepEval ctx $ substTop l' n
     x -> error $ show x
+bigStepEval ctx (As t1 _) = bigStepEval ctx t1
 bigStepEval _ Tru = Tru
 bigStepEval _ Fls = Fls
 bigStepEval _ x = error $ show x

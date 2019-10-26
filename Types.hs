@@ -24,6 +24,7 @@ data Term
   | S Term
   | Case Term Term Varname Term
   | Unit
+  | As Term Type
   deriving (Show, Eq)
 
 data Type = FuncT Type Type | BoolT | NatT | UnitT
@@ -142,3 +143,7 @@ typecheck (Case l m _ n) = typecheck l >>= \case
       else throwError $ T TypeError
   _ -> throwError $ T TypeError
 typecheck Unit = pure UnitT
+typecheck (As t1 ty) = typecheck t1 >>= \ty1' ->
+                       if ty1' == ty
+                          then pure ty
+                          else throwError $ T TypeError
