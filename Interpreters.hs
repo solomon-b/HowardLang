@@ -52,6 +52,7 @@ pretty t = runReader (f t) Nil
       return $ "(lambda " ++ x' ++ " : " ++ show ty ++ ". " ++ t1' ++ ")"
     f Tru = return "True"
     f Fls = return "False"
+    f Unit = return "Unit"
     f Z = return "0"
     f s@(S _) = return $ showNat s
     f (If t1 t2 t3) = do
@@ -78,8 +79,10 @@ depth (App t1 t2) = depth t1 + depth t2
 depth Tru = 0
 depth Fls = 0
 depth Z = 0
+depth Unit = 0
 depth (S t) = depth t
 depth (If t1 t2 t3) = depth t1 + depth t2 + depth t3
+depth (Case l m _ n) = depth l + depth m + depth n
 
 
 ------------
@@ -104,6 +107,7 @@ shift target t = f 0 t
     f i (App t1 t2) = App (f i t1) (f i t2)
     f _ Tru = Tru
     f _ Fls = Fls
+    f _ Unit = Unit
     f _ Z = Z
     f i (S t1) = S (f i t1)
     f i (If t1 t2 t3) = If (f i t1) (f i t2) (f i t3)
@@ -129,6 +133,7 @@ subst j s t = f 0 s t
         f c s' (App t1 t2) = App (f c s' t1) (f c s' t2)
         f _ _ Tru = Tru
         f _ _ Fls = Fls
+        f _ _ Unit = Unit
         f c s' (If t1 t2 t3) = If (f c s' t1) (f c s' t2) (f c s' t3)
         f _ _ Z = Z
         f c s' (S t1) = S (f c s' t1)
@@ -145,6 +150,7 @@ isVal _ (Abs _ _ _) = True
 isVal _ Tru   = True
 isVal _ Fls   = True
 isVal _ Z     = True
+isVal _ Unit  = True
 isVal c (S n) = isVal c n
 isVal _ _     = False
 

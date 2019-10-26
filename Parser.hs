@@ -76,7 +76,7 @@ rword :: String -> Parser ()
 rword w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
 
 rws :: [String]
-rws = ["if", "then", "else", "True", "False", "case", "of", "Z", "S", "|"]
+rws = ["if", "then", "else", "True", "False", "case", "of", "Z", "S", "|", "Unit"]
 
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)
@@ -95,25 +95,31 @@ identifier = (lexeme . try) (p >>= check)
 
 -- | Types
 
+parserUnitT :: Parser Type
+parserUnitT = rword "Unit" *> pure UnitT
+
 parserNatT :: Parser Type
-parserNatT = symbol "Nat" *> pure NatT
+parserNatT = rword "Nat" *> pure NatT
 
 parserBoolT :: Parser Type
-parserBoolT = symbol "Bool" *> pure BoolT
+parserBoolT = rword "Bool" *> pure BoolT
 
 parserArrowNest :: Parser Type
 parserArrowNest = parens parserArrow
 
 parserArrow :: Parser Type
 parserArrow = do
-  types <- (parens parserArrow <|> parserNatT <|> parserBoolT) `sepBy1` arrow
-  return $ foldr1 FuncT types
+  types <- (parens parserArrow <|> parserNatT <|> parserBoolT <|> parserUnitT) `sepBy1` arrow
+  pure $ foldr1 FuncT types
 
 parseType :: Parser Type
 parseType = try parserArrow <|> parserBoolT <|> parserNatT
 
 
 -- | Terms:
+
+parserUnit :: Parser Term
+parserUnit = rword "Unit" *> pure Unit
 
 parserBool :: Parser Term
 parserBool = (rword "True" *> pure Tru) <|> (rword "False" *> pure Fls)
@@ -122,7 +128,7 @@ parserVar :: Parser Term
 parserVar = do
   env <- ask
   val <- identifier
-  return $ maybe (Var 0) Var $ (find (== val) env) >>= snocIndex env
+  pure $ maybe (Var 0) Var $ (find (== val) env) >>= snocIndex env
 
 parserIf :: Parser Term
 parserIf = do
@@ -132,7 +138,7 @@ parserIf = do
   t2 <- parserTerm
   rword "else" *> colon
   t3 <- parserTerm
-  return $ If t1 t2 t3
+  pure $ If t1 t2 t3
 
 parserPeano :: Parser Term
 parserPeano =
@@ -141,7 +147,7 @@ parserPeano =
 parserNat :: Parser Term
 parserNat = do
    digits <- fromIntegral <$> integer
-   return . foldr (\a b -> a b) Z $ replicate digits S
+   pure . foldr (\a b -> a b) Z $ replicate digits S
 
 parserCase :: Parser Term
 parserCase = do
@@ -155,7 +161,7 @@ parserCase = do
   x <- parensOpt $ rword "S" *> identifier
   phatArrow
   n <- parserTerm
-  return $ Case l m x n
+  pure $ Case l m x n
 
 
 updateEnv :: Varname -> Bindings -> Bindings
@@ -169,7 +175,7 @@ parserAbs = do
   ty <- parseType
   dot
   term <- local (updateEnv var) parserTerm
-  return (Abs var ty term)
+  pure (Abs var ty term)
 
 -- TODO: Fix parser bug when an extra close paren is present:
 -- > ((\x:Bool.True) True)) True
@@ -178,6 +184,7 @@ parserTerm :: Parser Term
 parserTerm = foldl1 App <$> (  parserIf
                            <|> parserCase
                            <|> parserAbs
+                           <|> parserUnit
                            <|> parserBool
                            <|> parserNat
                            <|> parserPeano

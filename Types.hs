@@ -23,10 +23,20 @@ data Term
   | Z
   | S Term
   | Case Term Term Varname Term
+  | Unit
   deriving (Show, Eq)
 
-data Type = FuncT Type Type | BoolT | NatT
-  deriving (Eq, Show)
+data Type = FuncT Type Type | BoolT | NatT | UnitT
+  deriving Eq
+
+instance Show Type where
+  show BoolT = "Bool"
+  show NatT  = "Nat"
+  show UnitT = "Unit"
+  show (FuncT f1@(FuncT _ _) f2@(FuncT _ _)) = "(" ++ show f1 ++ ")" ++ " -> " ++ "(" ++ show f2 ++ ")"
+  show (FuncT f1@(FuncT _ _) t2) = "(" ++ show f1 ++ ")" ++ " -> " ++ show t2
+  show (FuncT t1 f2@(FuncT _ _)) = show t1 ++ " -> " ++ "(" ++ show f2 ++ ")"
+  show (FuncT t1 t2) = show t1 ++ " -> " ++ show t2
 
 -- | Context Types
 type Bindings = SnocList Varname
@@ -44,6 +54,7 @@ instance Exception Err
 ----------------
 --- SnocList ---
 ----------------
+-- TODO: Do I really need snoc lists?
 
 data SnocList a = Nil | Snoc (SnocList a) a
   deriving (Show, Foldable)
@@ -100,33 +111,34 @@ typecheck ::
 typecheck (Var i) = asks (flip getBinding i)
 typecheck (Abs var ty t2) = do
   ty2 <- local (flip Snoc (var, ty)) (typecheck t2)
-  return $ FuncT ty ty2
+  pure $ FuncT ty ty2
 typecheck (App t1 t2) = typecheck t1 >>= \case
   FuncT ty1 ty2 -> do
     ty1' <- typecheck t2
     if ty1' == ty1
-      then return ty2
+      then pure ty2
       else throwError $ T TypeError
   _ -> throwError $ T TypeError
-typecheck Tru = return BoolT
-typecheck Fls = return BoolT
+typecheck Tru = pure BoolT
+typecheck Fls = pure BoolT
 typecheck (If t1 t2 t3) = typecheck t1 >>= \case
   BoolT -> do
     ty2 <- typecheck t2
     ty3 <- typecheck t3
     if ty2 == ty3
-      then return ty2
+      then pure ty2
       else throwError $ T TypeError
   _ -> throwError $ T TypeError
-typecheck Z = return NatT
+typecheck Z = pure NatT
 typecheck (S t) = typecheck t >>= \case
-  NatT -> return NatT
+  NatT -> pure NatT
   _ -> throwError $ T TypeError
 typecheck (Case l m _ n) = typecheck l >>= \case
   NatT -> do
     mTy <- typecheck m
     nTy <- typecheck n
     if mTy == nTy
-      then return nTy
+      then pure nTy
       else throwError $ T TypeError
   _ -> throwError $ T TypeError
+typecheck Unit = pure UnitT
