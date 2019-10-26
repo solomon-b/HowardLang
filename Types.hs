@@ -115,13 +115,18 @@ typecheck (If t1 t2 t3) = typecheck t1 >>= \case
     ty2 <- typecheck t2
     ty3 <- typecheck t3
     if ty2 == ty3
-      then typecheck t2
+      then return ty2
       else throwError $ T TypeError
   _ -> throwError $ T TypeError
 typecheck Z = return NatT
 typecheck (S t) = typecheck t >>= \case
   NatT -> return NatT
   _ -> throwError $ T TypeError
-typecheck (Case l m  x n) = typecheck l >>= \case
-  NatT -> return NatT
+typecheck (Case l m _ n) = typecheck l >>= \case
+  NatT -> do
+    mTy <- typecheck m
+    nTy <- typecheck n
+    if mTy == nTy
+      then return nTy
+      else throwError $ T TypeError
   _ -> throwError $ T TypeError

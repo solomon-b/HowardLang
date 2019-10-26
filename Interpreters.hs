@@ -27,6 +27,7 @@ pickFreshName ctx str = f ctx str 0
                              Just _  -> let str'' = appendPrime str i
                                         in f ctx' str'' (i+1)
 
+-- TODO: this blows up on `> (\x:Nat. S x)`
 showNat :: Term -> String
 showNat nat = show $ f nat
   where

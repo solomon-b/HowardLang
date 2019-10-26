@@ -180,7 +180,7 @@ parserTerm = foldl1 App <$> (  parserIf
                            <|> parserAbs
                            <|> parserBool
                            <|> parserNat
-                           -- <|> parserPeano
+                           <|> parserPeano
                            <|> parserVar
                            <|> parens parserTerm
                             ) `sepBy1` sc
