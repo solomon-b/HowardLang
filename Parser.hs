@@ -66,11 +66,14 @@ dot = void $ symbol "."
 arrow :: Parser ()
 arrow = void $ symbol "->"
 
+phatArrow :: Parser ()
+phatArrow = void $ symbol "=>"
+
 rword :: String -> Parser ()
 rword w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
 
 rws :: [String]
-rws = ["if", "then", "else", "True", "False"]
+rws = ["if", "then", "else", "True", "False", "case", "of", "Zero", "Succ"]
 
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)
@@ -133,6 +136,21 @@ parserNat = do
    digits <- fromIntegral <$> integer
    return . foldr (\a b -> a b) Z $ replicate digits S
 
+parserCase :: Parser Term
+parserCase = do
+  rword "case"
+  l <- parserTerm
+  rword "of"
+  rword "Zero"
+  phatArrow
+  m <- parserTerm
+  rword "Succ"
+  x <- identifier
+  phatArrow
+  n <- parserTerm
+  return $ Case l m x n
+
+
 updateEnv :: Varname -> Bindings -> Bindings
 updateEnv var env = Snoc env var
 
@@ -146,6 +164,9 @@ parserAbs = do
   term <- local (updateEnv var) parserTerm
   return (Abs var ty term)
 
+-- TODO: Fix parser bug when an extra close paren is present:
+-- > ((\x:Bool.True) True)) True
+-- True
 parserTerm :: Parser Term
 parserTerm = foldl1 App <$> (  parserIf
                            <|> parserAbs

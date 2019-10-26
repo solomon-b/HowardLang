@@ -1,9 +1,9 @@
 module TypedLambdaCalcInitial.Interpreters where
---module TypedLambdaCalcInitial.Interpreters (pretty, depth, size, multiStepEval, bigStepEval) where
 
 import Control.Monad.Reader
-
 import Data.List
+
+import Debug.Trace
 
 import TypedLambdaCalcInitial.Types
 
@@ -58,6 +58,11 @@ pretty t = runReader (f t) Nil
       t2' <- f t2
       t3' <- f t3
       return $ "If " ++ t1' ++ " then " ++ t2' ++ " else " ++ t3'
+    f (Case l m var n) = return $
+                         "case " ++ show l ++ " of\\n" ++
+                         "Zero => " ++ show m ++ "\\n" ++
+                         "Succ " ++ var ++ " => " ++ show n
+
 
 
 -------------
@@ -118,13 +123,15 @@ subst :: DeBruijn -> Term -> Term -> Term
 subst j s t = f 0 s t
   where f :: DeBruijn -> Term -> Term -> Term
         f c s' (Var x) = if x == j + c then s' else Var x
-        f c s' (Abs v ty _) = Abs v ty (f (c+1) (shift c s') t)
+        f c s' (Abs v ty t') = Abs v ty (f (c+1) (shift c s') t')
         f c s' (App t1 t2) = App (f c s' t1) (f c s' t2)
         f _ _ Tru = Tru
         f _ _ Fls = Fls
         f c s' (If t1 t2 t3) = If (f c s' t1) (f c s' t2) (f c s' t3)
         f _ _ Z = Z
         f c s' (S t1) = S (f c s' t1)
+        f c s' (Case Z m _ _) = f c s' m
+        f c s' (Case (S _) _ _ n) = f (c+1) s' n
 
 substTop :: Term -> Term -> Term
 substTop s t = shift (-1) (subst 0 (shift 1 s) t)
@@ -145,6 +152,9 @@ singleEval ctx t =
     (App (Abs _ _ t12) v2) | isVal ctx v2 -> return $ substTop v2 t12
     (App v1@(Abs _ _ _) t2) -> App v1 <$> singleEval ctx t2
     (App t1 t2) -> flip App t2 <$> singleEval ctx t1
+    (If Tru t2 _) -> Just t2
+    (If Fls _ t3) -> Just t3
+    (If t1 t2 t3) -> If <$> singleEval ctx t1 <*> Just t2 <*> Just t3
     _ -> Nothing
 
 -- Multistep Evaluation Function
@@ -156,6 +166,10 @@ bigStepEval :: Context -> Term -> Term
 bigStepEval _ t@(Abs _ _ _) = t
 bigStepEval ctx (App t1 t2) =
   let (Abs _ _ t12) = bigStepEval ctx t1
+      (If t1' t2' t3') = case bigStepEval ctx t1' of
+                        Tru -> bigStepEval ctx t2'
+                        Fls -> bigStepEval ctx t3'
+                        _   -> undefined
       v2  = bigStepEval ctx t2
   in bigStepEval ctx $ substTop v2 t12
 bigStepEval _ Tru = Tru

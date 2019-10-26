@@ -22,7 +22,8 @@ data Term
   | If Term Term Term
   | Z
   | S Term
-  deriving Show
+  | Case Term Term Varname Term
+  deriving (Show, Eq)
 
 data Type = FuncT Type Type | BoolT | NatT
   deriving (Eq, Show)
