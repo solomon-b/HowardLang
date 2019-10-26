@@ -51,7 +51,10 @@ pretty t = runReader (f t) Nil
     f Tru = pure "True"
     f Fls = pure "False"
     f Unit = pure "Unit"
-    f (As t1 ty) = pure $ "(" ++ show t1 ++ " as " ++ show ty ++ ")"
+    f (As (Var i) ty) = do
+      ctx <- ask
+      let var = ctx !!! i
+      pure $ "(" ++ var ++ " as " ++ show ty ++ ")"
     f Z = pure "0"
     f s@(S _) = pure $ showNat s
     f (If t1 t2 t3) = do
