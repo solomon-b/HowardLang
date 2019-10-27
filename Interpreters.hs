@@ -2,7 +2,7 @@ module TypedLambdaCalcInitial.Interpreters where
 
 import Control.Monad.Reader
 import Data.List
-import qualified Data.Text.Prettyprint.Doc as P
+--import qualified Data.Text.Prettyprint.Doc as P
 
 import TypedLambdaCalcInitial.Types
 
@@ -11,17 +11,20 @@ import TypedLambdaCalcInitial.Types
 --- Pretty Printer ---
 ----------------------
 
+{-
+-- TODO
 typeToList :: Type -> [Type]
 typeToList (FuncT ty1@(FuncT _ _) ty2) = [ty1, ty2]
 typeToList (FuncT ty1 ty2@(FuncT _ _)) = [ty1, ty2]
 typeToList (FuncT ty1 ty2) = [ty1, ty2]
 typeToList ty = pure ty
 
---prettyType :: [P.Doc ann] -> P.Doc ann
+prettyType :: [P.Doc ann] -> P.Doc ann
 prettyType = P.align . P.sep . zipWith (P.<+>) ("::" : repeat "->")
 
---prettyDecl :: P.Pretty a => a -> [P.Doc ann] -> P.Doc ann
+prettyDecl :: P.Pretty a => a -> [P.Doc ann] -> P.Doc ann
 prettyDecl n tys = P.pretty n P.<+> prettyType tys
+-}
 
 primeSieve :: [Integer]
 primeSieve = 2 : [i | i <- [3..], and [rem i p > 0 | p <- takeWhile (\p -> p^(2 :: Integer) <= i) primeSieve]]

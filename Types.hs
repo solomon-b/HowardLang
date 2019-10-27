@@ -8,8 +8,8 @@ import Control.Monad.Reader
 
 import Data.Data
 import Data.List
-import qualified Data.Text as T
-import Data.Text.Prettyprint.Doc
+--import qualified Data.Text as T
+--import Data.Text.Prettyprint.Doc
 
 import Text.Megaparsec
 
@@ -48,10 +48,11 @@ instance Show Term where
   show Unit = "Unit"
   show (As t1 ty) = show t1 ++ " as " ++ show ty
   show (Let v t1 t2) = "Let " ++ v ++ " = " ++ show t1 ++ " in " ++ show t2
-
+{-
 -- TODO: Learn how to use `prettyprinter` and replace my bespoke printer
 instance Pretty Term where
   pretty = viaShow
+-}
 
 data Type = FuncT Type Type | BoolT | NatT | UnitT
   deriving Eq
@@ -66,9 +67,10 @@ instance Show Type where
   show (FuncT t1 f2@(FuncT _ _)) = show t1 ++ " -> " ++ "(" ++ show f2 ++ ")"
   show (FuncT t1 t2) = show t1 ++ " -> " ++ show t2
 
+{-
 instance Pretty Type where
   pretty = viaShow
-
+-}
 
 -- | Context Types
 type Bindings = [Varname]
