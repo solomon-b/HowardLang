@@ -23,10 +23,10 @@ handleParseErr :: Either ParseErr Term -> Either Err Term
 handleParseErr val = either (Left . P) Right val
 
 runParse :: String -> Either Err Term
-runParse = handleParseErr . runIdentity . flip runReaderT Nil . runParserT parserTerm mempty
+runParse = handleParseErr . runIdentity . flip runReaderT [] . runParserT pTerm mempty
 
 run :: Parser a -> String -> Either ParseErr a
-run p = runIdentity . flip runReaderT Nil . runParserT p mempty
+run p = runIdentity . flip runReaderT [] . runParserT p mempty
 
 
 -------------
@@ -76,7 +76,22 @@ rword :: String -> Parser ()
 rword w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
 
 rws :: [String]
-rws = ["if", "then", "else", "True", "False", "case", "of", "Z", "S", "|", "Unit", "as"]
+rws = [ "if"
+      , "then"
+      , "else"
+      , "True"
+      , "False"
+      , "case"
+      , "of"
+      , "Z"
+      , "S"
+      , "|"
+      , "Unit"
+      , "as"
+      , "let"
+      , "in"
+      , "="
+      ]
 
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)
@@ -95,107 +110,117 @@ identifier = (lexeme . try) (p >>= check)
 
 -- | Types
 
-parserUnitT :: Parser Type
-parserUnitT = rword "Unit" *> pure UnitT
+pUnitT :: Parser Type
+pUnitT = rword "Unit" *> pure UnitT
 
-parserNatT :: Parser Type
-parserNatT = rword "Nat" *> pure NatT
+pNatT :: Parser Type
+pNatT = rword "Nat" *> pure NatT
 
-parserBoolT :: Parser Type
-parserBoolT = rword "Bool" *> pure BoolT
+pBoolT :: Parser Type
+pBoolT = rword "Bool" *> pure BoolT
 
-parserArrowNest :: Parser Type
-parserArrowNest = parens parserArrow
+pArrowNest :: Parser Type
+pArrowNest = parens pArrow
 
-parserArrow :: Parser Type
-parserArrow = do
-  types <- (parens parserArrow <|> parserNatT <|> parserBoolT <|> parserUnitT) `sepBy1` arrow
+pArrow :: Parser Type
+pArrow = do
+  types <- (parens pArrow <|> pNatT <|> pBoolT <|> pUnitT) `sepBy1` arrow
   pure $ foldr1 FuncT types
 
 parseType :: Parser Type
-parseType = try parserArrow <|> parserBoolT <|> parserNatT
+parseType = try pArrow <|> pBoolT <|> pNatT
 
 
 -- | Terms:
 
-parserUnit :: Parser Term
-parserUnit = rword "Unit" *> pure Unit
+pUnit :: Parser Term
+pUnit = rword "Unit" *> pure Unit
 
-parserBool :: Parser Term
-parserBool = (rword "True" *> pure Tru) <|> (rword "False" *> pure Fls)
+pBool :: Parser Term
+pBool = (rword "True" *> pure Tru) <|> (rword "False" *> pure Fls)
 
-parserVar :: Parser Term
-parserVar = do
+pVar :: Parser Term
+pVar = do
   env <- ask
   val <- identifier
-  pure $ maybe (Var 0) Var $ (find (== val) env) >>= snocIndex env
+  pure $ maybe (Var 0) Var $ (find (== val) env) >>= flip elemIndex env
 
-parserIf :: Parser Term
-parserIf = do
+pIf :: Parser Term
+pIf = do
   rword "if" *> colon
-  t1 <- parserTerm
+  t1 <- pTerm
   rword "then" *> colon
-  t2 <- parserTerm
+  t2 <- pTerm
   rword "else" *> colon
-  t3 <- parserTerm
+  t3 <- pTerm
   pure $ If t1 t2 t3
 
-parserPeano :: Parser Term
-parserPeano =
-  rword "S" *> (S <$> parserTerm) <|> (rword "Z" *> pure Z)
+pPeano :: Parser Term
+pPeano =
+  rword "S" *> (S <$> pTerm) <|> (rword "Z" *> pure Z)
 
-parserNat :: Parser Term
-parserNat = do
+pNat :: Parser Term
+pNat = do
    digits <- fromIntegral <$> integer
    pure . foldr (\a b -> a b) Z $ replicate digits S
 
-parserAs :: Parser Term
-parserAs = try $ do
-  t1 <- parserVar
+pAs :: Parser Term
+pAs = try $ do
+  t1 <- pValues
   rword "as"
   ty <- parseType
   pure $ As t1 ty
 
-parserCase :: Parser Term
-parserCase = do
+pCase :: Parser Term
+pCase = do
   rword "case"
-  l <- parserTerm
+  l <- pTerm
   rword "of"
   rword "Z"
   phatArrow
-  m <- parserTerm
+  m <- pTerm
   pipe
   x <- parensOpt $ rword "S" *> identifier
   phatArrow
-  n <- parserTerm
+  n <- pTerm
   pure $ Case l m x n
 
+pLet :: Parser Term
+pLet = do
+  rword "let"
+  var <- identifier
+  rword "="
+  t1 <- pTerm
+  rword "in"
+  t2 <- local (updateEnv var) pTerm
+  pure $ Let var t1 t2
 
 updateEnv :: Varname -> Bindings -> Bindings
-updateEnv var env = Snoc env var
+updateEnv var env = var : env
 
-parserAbs :: Parser Term
-parserAbs = do
+pAbs :: Parser Term
+pAbs = do
   void $ symbol "\\"
   var <- identifier
   colon
   ty <- parseType
   dot
-  term <- local (updateEnv var) parserTerm
+  term <- local (updateEnv var) pTerm
   pure (Abs var ty term)
 
-parserValues :: Parser Term
-parserValues = parserUnit <|> parserBool <|> parserNat <|> parserPeano <|> parserVar
+pValues :: Parser Term
+pValues = pUnit <|> pBool <|> pNat <|> pPeano <|> pVar
 
 -- TODO: Fix parser bug when an extra close paren is present:
 -- > ((\x:Bool.True) True)) True
 -- True
-parserTerm :: Parser Term
-parserTerm = foldl1 App <$> (  parserIf
-                           <|> parserCase
-                           <|> parserAbs
-                           <|> parserAs
-                           <|> parserValues
-                           <|> parens parserTerm
+pTerm :: Parser Term
+pTerm = foldl1 App <$> (  pIf
+                           <|> pCase
+                           <|> pAbs
+                           <|> pAs
+                           <|> pLet
+                           <|> pValues
+                           <|> parens pTerm
                             ) `sepBy1` sc
 

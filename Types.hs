@@ -7,6 +7,8 @@ import Control.Monad.Reader
 import Data.List
 import Data.Void
 
+import Debug.Trace
+
 import Text.Megaparsec
 
 type Varname = String
@@ -25,6 +27,7 @@ data Term
   | Case Term Term Varname Term
   | Unit
   | As Term Type
+  | Let Varname Term Term
   deriving (Show, Eq)
 
 data Type = FuncT Type Type | BoolT | NatT | UnitT
@@ -40,8 +43,8 @@ instance Show Type where
   show (FuncT t1 t2) = show t1 ++ " -> " ++ show t2
 
 -- | Context Types
-type Bindings = SnocList Varname
-type Context = SnocList (Varname, Type)
+type Bindings = [Varname]
+type Context = [(Varname, Type)]
 
 -- | Error Types
 type ParseErr = ParseErrorBundle String Void
@@ -52,36 +55,10 @@ data Err = P ParseErr | T TypeErr deriving Show
 instance Exception Err
 
 
-----------------
---- SnocList ---
-----------------
--- TODO: Do I really need snoc lists?
-
-data SnocList a = Nil | Snoc (SnocList a) a
-  deriving (Show, Foldable)
-
-infixl 9 !!!
-(!!!) :: SnocList a -> Int -> a
-(!!!) Nil _ = error "Index too large."
-(!!!) (Snoc _ x) 0 = x
-(!!!) (Snoc xs _) i = xs !!! (i - 1)
-
-snocIndex :: Eq a => SnocList a -> a -> Maybe Int
-snocIndex xs var = f xs var 0
-  where
-    f :: Eq a => SnocList a -> a -> Int -> Maybe Int
-    f Nil _ _ = Nothing
-    f (Snoc xs' x') var' i' = if x' == var' then Just i' else f xs' var' (i'+1)
-
-getIndexFromContext :: Context -> Varname -> Maybe DeBruijn
-getIndexFromContext ctx var = find (\el -> var == fst el) ctx >>= snocIndex ctx
-
-
 ---------------------
 --- Type Checking ---
 ---------------------
 -- TODO: Move this into its own module?
-
 
 newtype TypecheckT m a =
   TypecheckT { unTypecheckT :: ExceptT Err (ReaderT Context m) a }
@@ -95,15 +72,16 @@ runTypecheckT gamma = flip runReaderT gamma . runExceptT . unTypecheckT
 runTypecheckM :: Context -> TypecheckT Identity a -> Either Err a
 runTypecheckM gamma = runIdentity . runTypecheckT gamma
 
+getIndexFromContext :: Context -> Varname -> Maybe DeBruijn
+getIndexFromContext ctx var = find (\el -> var == fst el) ctx >>= flip elemIndex ctx
 
 addBinding :: Context -> Varname -> Type -> Context
-addBinding ctx var bnd = Snoc ctx (var, bnd)
+addBinding ctx var bnd = (var, bnd) : ctx
 
 -- TODO: Make these safer
 -- UNSAFE!
 getBinding :: Context -> Int -> Type
-getBinding xs i = snd $ xs !!! i
-
+getBinding xs i = snd $ xs !! i
 
 typecheck ::
   ( MonadError Err m
@@ -111,7 +89,7 @@ typecheck ::
   Term -> m Type
 typecheck (Var i) = asks (flip getBinding i)
 typecheck (Abs var ty t2) = do
-  ty2 <- local (flip Snoc (var, ty)) (typecheck t2)
+  ty2 <- local ((:) (var, ty)) (typecheck t2)
   pure $ FuncT ty ty2
 typecheck (App t1 t2) = typecheck t1 >>= \case
   FuncT ty1 ty2 -> do
@@ -145,5 +123,7 @@ typecheck (Case l m _ n) = typecheck l >>= \case
 typecheck Unit = pure UnitT
 typecheck (As t1 ty) = typecheck t1 >>= \ty1' ->
                        if ty1' == ty
-                          then pure ty
+                          then pure $ traceShowId ty
                           else throwError $ T TypeError
+typecheck (Let _ t1 t2) = typecheck t1 >> typecheck t2 -- Is this suspect?
+

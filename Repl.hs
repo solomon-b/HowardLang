@@ -108,8 +108,8 @@ repl = runRepl loop
             Just str' -> do
               let res = do
                     parsed  <- runParse str'
-                    checked <- runTypecheckM Nil (typecheck parsed)
-                    reduced <- (Right $ multiStepEval Nil parsed :: Either Err Term)
+                    checked <- runTypecheckM [] (typecheck parsed)
+                    reduced <- (Right $ multiStepEval [] parsed :: Either Err Term)
                     return $ pretty reduced
               either (outputStrLn . showE) outputStrLn res
               loop

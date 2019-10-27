@@ -21,7 +21,7 @@ pickFreshName ctx str = f ctx str 0
   where f :: Bindings -> String -> Int -> (Bindings, String)
         f ctx' str' i = let res = find (== str') ctx'
                         in case res of
-                             Nothing -> (Snoc ctx' str', str')
+                             Nothing -> (str' : ctx', str')
                              Just _  -> let str'' = appendPrime str i
                                         in f ctx' str'' (i+1)
 
@@ -34,39 +34,47 @@ showNat nat = show $ f nat
     f (S n) = 1 + f n
     f _ = undefined
 
+-- TODO: Implement `Show Term` Instance
 pretty :: Term -> String
-pretty t = runReader (f t) Nil
+pretty t = runReader (f t) []
   where
     f :: Term -> Reader Bindings String
     f (App t1 t2) = do
       t1' <- f t1
       t2' <- f t2
       pure $ "(" ++ t1' ++ " " ++ t2' ++ ")"
-    f (Var x) = ask >>= \ctx -> pure $ ctx !!! x
+    f (Var x) = ask >>= \ctx -> pure $ ctx !! x
     f (Abs x ty t1) = do
       ctx <- ask
       let (ctx', x') = pickFreshName ctx x
       t1' <- local (const ctx') (f t1)
-      pure $ "(lambda " ++ x' ++ " : " ++ show ty ++ ". " ++ t1' ++ ")"
+      pure $ "(λ " ++ x' ++ " : " ++ show ty ++ ". " ++ t1' ++ ")"
     f Tru = pure "True"
     f Fls = pure "False"
     f Unit = pure "Unit"
     f (As (Var i) ty) = do
       ctx <- ask
-      let var = ctx !!! i
+      let var = ctx !! i
       pure $ "(" ++ var ++ " as " ++ show ty ++ ")"
+    f (As t1 ty) = f t1 >>= \t1' -> pure $ "(" ++ t1' ++ "as" ++ show ty ++ ")"
     f Z = pure "0"
-    f s@(S _) = pure $ showNat s
+    f s@(S _) = pure $ show s
     f (If t1 t2 t3) = do
       t1' <- f t1
       t2' <- f t2
       t3' <- f t3
       pure $ "If " ++ t1' ++ " then " ++ t2' ++ " else " ++ t3'
-    f (Case l m var n) = pure $
-                         "case " ++ show l ++ " of\\n" ++
-                         "Zero => " ++ show m ++ "\\n" ++
-                         "Succ " ++ var ++ " => " ++ show n
-
+    f (Case l m var n) = do
+      l' <- f l
+      m' <- f m
+      n' <- f n
+      pure $ "case " ++ l' ++ " of\\n" ++
+             "Zero => " ++ m' ++ "\\n" ++
+             "Succ " ++ var ++ " => " ++ n'
+    f (Let x t1 t2) = do
+      t1' <- f t1
+      t2' <- f t2
+      pure $ "let " ++ x ++ " = " ++ t1' ++ " in " ++ t2'
 
 
 -------------
@@ -86,6 +94,7 @@ depth (As t1 _) = depth t1
 depth (S t) = depth t
 depth (If t1 t2 t3) = depth t1 + depth t2 + depth t3
 depth (Case l m _ n) = depth l + depth m + depth n
+depth (Let _ t1 t2) = 1 + depth t1 + depth t2
 
 
 ------------
@@ -116,6 +125,7 @@ shift target t = f 0 t
     f i (If t1 t2 t3) = If (f i t1) (f i t2) (f i t3)
     f i (Case l m x n) = Case (f i l) (f i m) x (f (i + 1) n)
     f i (As t1 ty) = As (f i t1) ty
+    f i (Let v t1 t2) = Let v (f i t1) (f (i + 1) t2)
 
 {-
 Substitution Rules:
@@ -146,6 +156,7 @@ subst j s t = f 0 s t
                                      x
                                      (f (c+1) (shift c s') n)
         f c s' (As t1 ty) = As (f c s' t1) ty
+        f c s' (Let v t1 t2) = Let v (f c s' t1) (f (c+1) (shift c s') t2)
 
 substTop :: Term -> Term -> Term
 substTop s t = shift (-1) (subst 0 (shift 1 s) t)
@@ -166,7 +177,7 @@ singleEval ctx t =
   case t of
     (App (Abs _ _ t12) v2) | isVal ctx v2 -> pure $ substTop v2 t12
     (App v1@(Abs _ _ _) t2) -> App v1 <$> singleEval ctx t2
-    (App t1 t2) -> flip App t2 <$> singleEval ctx t1
+    (App t1 t2) -> singleEval ctx t1 >>= \t1' -> pure $ App t1' t2
     (If Tru t2 _) -> pure t2
     (If Fls _ t3) -> pure t3
     (If t1 t2 t3) ->
@@ -177,6 +188,8 @@ singleEval ctx t =
     (Case l m x n) ->
       singleEval ctx l >>= \l' -> pure $ Case l' m x n
     (As t1 _) -> pure t1
+    (Let _ v1 t2) | isVal ctx v1 -> pure $ substTop v1 t2
+    (Let v t1 t2) -> singleEval ctx t1 >>= \t1' -> pure $ Let v t1' t2
     _ -> Nothing
 
 -- Multistep Evaluation Function
