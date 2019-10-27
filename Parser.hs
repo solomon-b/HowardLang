@@ -186,10 +186,10 @@ pCase = do
   phatArrow
   m <- pTerm
   pipe
-  x <- parensOpt $ rword "S" *> identifier
+  var <- parensOpt $ rword "S" *> identifier
   phatArrow
-  n <- pTerm
-  pure $ Case l m x n
+  n <- local (updateEnv var) pTerm
+  pure $ Case l m var n
 
 pLet :: Parser Term
 pLet = do

@@ -7,7 +7,6 @@ import Control.Monad.Identity
 import Control.Monad.Reader
 import Data.Data
 import Data.List
-import Data.Void
 
 import Text.Megaparsec
 
@@ -136,10 +135,10 @@ typecheck Z = pure NatT
 typecheck (S t) = typecheck t >>= \case
   NatT -> pure NatT
   ty -> throwError $ T $ typeErr t ty NatT
-typecheck (Case l m _ n) = typecheck l >>= \case
+typecheck (Case l m v n) = typecheck l >>= \case
   NatT -> do
     mTy <- typecheck m
-    nTy <- typecheck n
+    nTy <- local ((:) (v, mTy)) (typecheck n)
     if mTy == nTy
       then pure nTy
       else throwError $ T $ typeMismatch m mTy n nTy

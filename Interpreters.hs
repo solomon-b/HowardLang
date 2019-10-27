@@ -3,8 +3,6 @@ module TypedLambdaCalcInitial.Interpreters where
 import Control.Monad.Reader
 import Data.List
 
-import Debug.Trace
-
 import TypedLambdaCalcInitial.Types
 
 
@@ -45,7 +43,7 @@ pretty t = runReader (f t) []
       t1' <- f t1
       t2' <- f t2
       pure $ "(" ++ t1' ++ " " ++ t2' ++ ")"
-    f (Var x) = ask >>= \ctx -> pure $ ctx !! x
+    f (Var x) = pure $ show x -- ask >>= \ctx -> pure $ ctx !! x
     f (Abs x ty t1) = do
       ctx <- ask
       let (ctx', x') = pickFreshName ctx x
@@ -219,16 +217,3 @@ bigStepEval ctx (As t1 _) = bigStepEval ctx t1
 bigStepEval _ Tru = Tru
 bigStepEval _ Fls = Fls
 bigStepEval _ x = error $ show x
-
-{-
-TODO: Fix this horrible bug!
-
-> (\l:Nat.(\n:Nat.let x = case n of Z => 0 | (S m) => l in x)) 1 2
-S S 0
-
-> (\l:Nat.(\n:Nat.let x = case n of Z => 0 | (S m) => l in x)) 1
-typedLCI: Prelude.!!: index too large
-
-> (\l:Nat.(\n:Nat.case n of Z => 0 | (S m) => l)) 1
-typedLCI: Prelude.!!: index too large
--}
