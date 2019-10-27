@@ -1,13 +1,13 @@
+{-# LANGUAGE DeriveDataTypeable #-}
 module TypedLambdaCalcInitial.Types where
 
 import Control.Exception (Exception)
 import Control.Monad.Except
 import Control.Monad.Identity
 import Control.Monad.Reader
+import Data.Data
 import Data.List
 import Data.Void
-
-import Debug.Trace
 
 import Text.Megaparsec
 
@@ -28,7 +28,23 @@ data Term
   | Unit
   | As Term Type
   | Let Varname Term Term
-  deriving (Show, Eq)
+  deriving Eq
+
+instance Show Term where
+  show (Var i) = show i
+  show (Abs v ty t1) = "(λ " ++ v ++ " : " ++ show ty ++ ". " ++ show t1 ++ ")"
+  show (App t1 t2) = show t1 ++ " " ++ show t2
+  show Tru = "True"
+  show Fls = "False"
+  show (If t1 t2 t3) = "if: " ++ show t1 ++ " then: " ++ show t2 ++ " else: " ++ show t3
+  show Z = "0"
+  show (S t) = "S " ++ show t
+  show (Case t1 t2 v t3) = "case "   ++ show t1 ++ " of:" ++
+                           " Z => " ++ show t2 ++ " | "  ++
+                           " S "    ++ v       ++ " => " ++ show t3
+  show Unit = "Unit"
+  show (As t1 ty) = show t1 ++ " as " ++ show ty
+  show (Let v t1 t2) = "Let " ++ v ++ " = " ++ show t1 ++ " in " ++ show t2
 
 data Type = FuncT Type Type | BoolT | NatT | UnitT
   deriving Eq
@@ -37,7 +53,8 @@ instance Show Type where
   show BoolT = "Bool"
   show NatT  = "Nat"
   show UnitT = "Unit"
-  show (FuncT f1@(FuncT _ _) f2@(FuncT _ _)) = "(" ++ show f1 ++ ")" ++ " -> " ++ "(" ++ show f2 ++ ")"
+  show (FuncT f1@(FuncT _ _) f2@(FuncT _ _)) = "(" ++ show f1 ++ ")" ++
+                                               " -> " ++ "(" ++ show f2 ++ ")"
   show (FuncT f1@(FuncT _ _) t2) = "(" ++ show f1 ++ ")" ++ " -> " ++ show t2
   show (FuncT t1 f2@(FuncT _ _)) = show t1 ++ " -> " ++ "(" ++ show f2 ++ ")"
   show (FuncT t1 t2) = show t1 ++ " -> " ++ show t2
@@ -47,8 +64,15 @@ type Bindings = [Varname]
 type Context = [(Varname, Type)]
 
 -- | Error Types
-type ParseErr = ParseErrorBundle String Void
-data TypeErr = TypeError deriving Show
+data UnboundError = UnboundError String
+  deriving (Eq, Data, Typeable, Ord, Read, Show)
+
+instance ShowErrorComponent UnboundError where
+  showErrorComponent (UnboundError msg) =
+    "Unbound error: " ++ msg
+
+type ParseErr = ParseErrorBundle String UnboundError
+data TypeErr = TypeError String deriving Show
 
 data Err = P ParseErr | T TypeErr deriving Show
 
@@ -96,8 +120,8 @@ typecheck (App t1 t2) = typecheck t1 >>= \case
     ty1' <- typecheck t2
     if ty1' == ty1
       then pure ty2
-      else throwError $ T TypeError
-  _ -> throwError $ T TypeError
+      else throwError $ T $ typeMismatch t1 ty1 t2 ty1'
+  ty -> throwError $ T $ TypeError $ show t1 ++ " :: " ++ show ty ++ "is not a function"
 typecheck Tru = pure BoolT
 typecheck Fls = pure BoolT
 typecheck (If t1 t2 t3) = typecheck t1 >>= \case
@@ -106,24 +130,30 @@ typecheck (If t1 t2 t3) = typecheck t1 >>= \case
     ty3 <- typecheck t3
     if ty2 == ty3
       then pure ty2
-      else throwError $ T TypeError
-  _ -> throwError $ T TypeError
+      else throwError $ T $ typeMismatch t2 ty2 t3 ty3
+  ty1 -> throwError $ T $ typeErr t1 ty1 BoolT
 typecheck Z = pure NatT
 typecheck (S t) = typecheck t >>= \case
   NatT -> pure NatT
-  _ -> throwError $ T TypeError
+  ty -> throwError $ T $ typeErr t ty NatT
 typecheck (Case l m _ n) = typecheck l >>= \case
   NatT -> do
     mTy <- typecheck m
     nTy <- typecheck n
     if mTy == nTy
       then pure nTy
-      else throwError $ T TypeError
-  _ -> throwError $ T TypeError
+      else throwError $ T $ typeMismatch m mTy n nTy
+  ty -> throwError $ T $ typeErr l ty NatT
 typecheck Unit = pure UnitT
 typecheck (As t1 ty) = typecheck t1 >>= \ty1' ->
                        if ty1' == ty
-                          then pure $ traceShowId ty
-                          else throwError $ T TypeError
+                          then pure ty
+                          else throwError $ T $ typeErr t1 ty1' ty
 typecheck (Let _ t1 t2) = typecheck t1 >> typecheck t2 -- Is this suspect?
 
+
+typeMismatch :: Term -> Type -> Term -> Type -> TypeErr
+typeMismatch t1 ty1 t2 ty2 = TypeError (show t1 ++ " :: " ++ show ty1 ++ " does not match " ++ show t2 ++ " :: " ++ show ty2)
+
+typeErr :: Term -> Type -> Type -> TypeErr
+typeErr t1 ty1 t2 = TypeError $ show t1 ++ " :: " ++ show ty1 ++ "does not match " ++ show t2

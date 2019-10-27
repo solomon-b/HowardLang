@@ -3,6 +3,8 @@ module TypedLambdaCalcInitial.Interpreters where
 import Control.Monad.Reader
 import Data.List
 
+import Debug.Trace
+
 import TypedLambdaCalcInitial.Types
 
 
@@ -25,7 +27,7 @@ pickFreshName ctx str = f ctx str 0
                              Just _  -> let str'' = appendPrime str i
                                         in f ctx' str'' (i+1)
 
--- TODO: this blows up on `> (\x:Nat. S x)`
+-- TODO: Bug fix. This blows up on `> (\x:Nat. S x)`
 showNat :: Term -> String
 showNat nat = show $ f nat
   where
@@ -64,13 +66,13 @@ pretty t = runReader (f t) []
       t2' <- f t2
       t3' <- f t3
       pure $ "If " ++ t1' ++ " then " ++ t2' ++ " else " ++ t3'
-    f (Case l m var n) = do
+    f (Case l m v n) = do
       l' <- f l
       m' <- f m
       n' <- f n
-      pure $ "case " ++ l' ++ " of\\n" ++
-             "Zero => " ++ m' ++ "\\n" ++
-             "Succ " ++ var ++ " => " ++ n'
+      pure $ "case "   ++ l' ++ " of: " ++
+             "Z => " ++ m' ++ " | "  ++
+             "S "    ++ v  ++ " => " ++ n'
     f (Let x t1 t2) = do
       t1' <- f t1
       t2' <- f t2
@@ -219,12 +221,14 @@ bigStepEval _ Fls = Fls
 bigStepEval _ x = error $ show x
 
 {-
+TODO: Fix this horrible bug!
 
-pred =
-(\n:Nat.
-   case n of
-     Z => Z
-     S l => l
-)
+> (\l:Nat.(\n:Nat.let x = case n of Z => 0 | (S m) => l in x)) 1 2
+S S 0
 
+> (\l:Nat.(\n:Nat.let x = case n of Z => 0 | (S m) => l in x)) 1
+typedLCI: Prelude.!!: index too large
+
+> (\l:Nat.(\n:Nat.case n of Z => 0 | (S m) => l)) 1
+typedLCI: Prelude.!!: index too large
 -}

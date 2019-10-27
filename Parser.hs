@@ -5,7 +5,6 @@ import Control.Monad.Reader
 
 import Data.Functor.Identity
 import Data.List
-import Data.Void
 
 import Text.Megaparsec
 import Text.Megaparsec.Char
@@ -16,7 +15,7 @@ import TypedLambdaCalcInitial.Types
 -- TODO: look into deriving MonadParsec
 -- newtype Parser a = Parser { runParser :: ParsecT Void String (Reader Bindings) a }
 --   deriving MonadParsec
-type Parser a = ParsecT Void String (Reader Bindings) a
+type Parser a = ParsecT UnboundError String (Reader Bindings) a
 
 
 handleParseErr :: Either ParseErr Term -> Either Err Term
@@ -139,11 +138,18 @@ pUnit = rword "Unit" *> pure Unit
 pBool :: Parser Term
 pBool = (rword "True" *> pure Tru) <|> (rword "False" *> pure Fls)
 
+searchContext :: Eq a => [a] -> a -> Maybe Int
+searchContext ctx val = (find (== val) ctx) >>= flip elemIndex ctx
+
 pVar :: Parser Term
 pVar = do
-  env <- ask
+  ctx <- ask
   val <- identifier
-  pure $ maybe (Var 0) Var $ (find (== val) env) >>= flip elemIndex env
+  if null ctx
+    then pure $ Var 0
+    else case searchContext ctx val of
+           Just i -> pure $ Var i
+           Nothing -> customFailure $ UnboundError $ val ++ " not in scope."
 
 pIf :: Parser Term
 pIf = do
@@ -211,15 +217,15 @@ pAbs = do
 pValues :: Parser Term
 pValues = pUnit <|> pBool <|> pNat <|> pPeano <|> pVar
 
+pStmts :: Parser Term
+pStmts = pCase <|> pAbs <|> pLet <|> pAs
+
 -- TODO: Fix parser bug when an extra close paren is present:
 -- > ((\x:Bool.True) True)) True
 -- True
 pTerm :: Parser Term
 pTerm = foldl1 App <$> (  pIf
-                           <|> pCase
-                           <|> pAbs
-                           <|> pAs
-                           <|> pLet
+                           <|> pStmts
                            <|> pValues
                            <|> parens pTerm
                             ) `sepBy1` sc
