@@ -4,6 +4,8 @@ import Control.Monad.Reader
 import Data.List
 --import qualified Data.Text.Prettyprint.Doc as P
 
+import Debug.Trace
+
 import TypedLambdaCalcInitial.Types
 
 
@@ -59,7 +61,7 @@ pretty t = runReader (f t) []
       t1' <- f t1
       t2' <- f t2
       pure $ "(" ++ t1' ++ " " ++ t2' ++ ")"
-    f (Var x) = ask >>= \ctx -> pure $ ctx !! x
+    f (Var x) = ask >>= \ctx -> pure $ show x -- (traceShowId ctx) !! x
     f (Abs x ty t1) = do
       ctx <- ask
       let (ctx', x') = pickFreshName ctx x

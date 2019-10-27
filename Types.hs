@@ -154,14 +154,14 @@ typecheck Z = pure NatT
 typecheck (S t) = typecheck t >>= \case
   NatT -> pure NatT
   ty -> throwError $ T $ typeErr t ty NatT
-typecheck (Case l m v n) = typecheck l >>= \case
+typecheck (Case n z v s) = typecheck n >>= \case
   NatT -> do
-    mTy <- typecheck m
-    nTy <- local ((:) (v, mTy)) (typecheck n)
-    if mTy == nTy
-      then pure nTy
-      else throwError $ T $ typeMismatch m mTy n nTy
-  ty -> throwError $ T $ typeErr l ty NatT
+    zTy <- typecheck z
+    sTy <- local ((:) (v, zTy)) (typecheck s)
+    if zTy == sTy
+      then pure sTy
+      else throwError $ T $ typeMismatch z zTy s sTy
+  ty -> throwError $ T $ typeErr n ty NatT
 typecheck Unit = pure UnitT
 typecheck (As t1 ty) = typecheck t1 >>= \ty1' ->
                        if ty1' == ty

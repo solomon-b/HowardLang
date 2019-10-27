@@ -222,16 +222,16 @@ pAs = try $ do
 pCase :: Parser Term
 pCase = do
   rword "case"
-  l <- pTerm
+  n <- pTerm
   rword "of"
   rword "Z"
   phatArrow
-  m <- pTerm
+  z <- pTerm
   pipe
   var <- parensOpt $ rword "S" *> identifier
   phatArrow
-  n <- local (updateEnv var) pTerm
-  pure $ Case l m var n
+  s <- local (updateEnv var) pTerm
+  pure $ Case n z var s
 
 pLet :: Parser Term
 pLet = do
