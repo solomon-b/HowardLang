@@ -31,6 +31,9 @@ data Term
   | Unit
   | As Term Type
   | Let Varname Term Term
+  | Pair Term Term
+  | Fst Term
+  | Snd Term
   deriving Eq
 
 instance Show Term where
@@ -48,13 +51,14 @@ instance Show Term where
   show Unit = "Unit"
   show (As t1 ty) = show t1 ++ " as " ++ show ty
   show (Let v t1 t2) = "Let " ++ v ++ " = " ++ show t1 ++ " in " ++ show t2
+  show (Pair t1 t2) = "{" ++ show t1 ++ ", " ++ show t2 ++ "}"
 {-
 -- TODO: Learn how to use `prettyprinter` and replace my bespoke printer
 instance Pretty Term where
   pretty = viaShow
 -}
 
-data Type = FuncT Type Type | BoolT | NatT | UnitT
+data Type = FuncT Type Type | BoolT | NatT | UnitT | PairT Type Type
   deriving Eq
 
 instance Show Type where
@@ -66,6 +70,7 @@ instance Show Type where
   show (FuncT f1@(FuncT _ _) t2) = "(" ++ show f1 ++ ")" ++ " -> " ++ show t2
   show (FuncT t1 f2@(FuncT _ _)) = show t1 ++ " -> " ++ "(" ++ show f2 ++ ")"
   show (FuncT t1 t2) = show t1 ++ " -> " ++ show t2
+  show (PairT t1 t2) = show t1 ++ " X " ++ show t2
 
 {-
 instance Pretty Type where
@@ -163,6 +168,18 @@ typecheck (As t1 ty) = typecheck t1 >>= \ty1' ->
                           then pure ty
                           else throwError $ T $ typeErr t1 ty1' ty
 typecheck (Let _ t1 t2) = typecheck t1 >> typecheck t2 -- Is this suspect?
+typecheck (Pair t1 t2) = do
+  ty1 <- typecheck t1
+  ty2 <- typecheck t2
+  pure $ PairT ty1 ty2
+typecheck (Fst (Pair t1 _)) = typecheck t1
+typecheck (Fst t1) = typecheck t1 >>= \case
+  (PairT ty1 _) -> pure ty1
+  ty -> (throwError $ T $ TypeError $ "Expected a Pair but got: " ++ show ty)
+typecheck (Snd (Pair _ t2)) = typecheck t2
+typecheck (Snd t) = typecheck t >>= \case
+  (PairT _ ty2) -> pure ty2
+  ty -> (throwError $ T $ TypeError $ "Expected a Pair but got: " ++ show ty)
 
 
 typeMismatch :: Term -> Type -> Term -> Type -> TypeErr

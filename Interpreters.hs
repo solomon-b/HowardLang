@@ -59,7 +59,7 @@ pretty t = runReader (f t) []
       t1' <- f t1
       t2' <- f t2
       pure $ "(" ++ t1' ++ " " ++ t2' ++ ")"
-    f (Var x) = pure $ show x -- ask >>= \ctx -> pure $ ctx !! x
+    f (Var x) = ask >>= \ctx -> pure $ ctx !! x
     f (Abs x ty t1) = do
       ctx <- ask
       let (ctx', x') = pickFreshName ctx x
@@ -91,6 +91,12 @@ pretty t = runReader (f t) []
       t1' <- f t1
       t2' <- f t2
       pure $ "let " ++ x ++ " = " ++ t1' ++ " in " ++ t2'
+    f (Pair t1 t2) = do
+      t1' <- f t1
+      t2' <- f t2
+      pure $ "{" ++ t1' ++ ", " ++ t2' ++ "}"
+    f (Fst t1) = (++ "fst ") <$> f t1
+    f (Snd t1) = (++ "snd ") <$> f t1
 
 
 -------------
@@ -111,6 +117,9 @@ depth (S t) = depth t
 depth (If t1 t2 t3) = depth t1 + depth t2 + depth t3
 depth (Case l m _ n) = depth l + depth m + depth n
 depth (Let _ t1 t2) = 1 + depth t1 + depth t2
+depth (Pair t1 t2) = depth t1 + depth t2
+depth (Fst t1) = depth t1
+depth (Snd t1) = depth t1
 
 
 ------------
@@ -142,6 +151,9 @@ shift target t = f 0 t
     f i (Case l m x n) = Case (f i l) (f i m) x (f (i + 1) n)
     f i (As t1 ty) = As (f i t1) ty
     f i (Let v t1 t2) = Let v (f i t1) (f (i + 1) t2)
+    f i (Pair t1 t2) = Pair (f i t1) (f i t2)
+    f i (Fst t1) = Fst (f i t1)
+    f i (Snd t1) = Snd (f i t1)
 
 {-
 Substitution Rules:
@@ -173,10 +185,14 @@ subst j s t = f 0 s t
                                      (f (c+1) (shift c s') n)
         f c s' (As t1 ty) = As (f c s' t1) ty
         f c s' (Let v t1 t2) = Let v (f c s' t1) (f (c+1) (shift c s') t2)
+        f c s' (Pair t1 t2) = Pair (f c s' t1) (f c s' t2)
+        f c s' (Fst t1) = Fst (f c s' t1)
+        f c s' (Snd t1) = Snd (f c s' t1)
 
 substTop :: Term -> Term -> Term
 substTop s t = shift (-1) (subst 0 (shift 1 s) t)
 
+-- Other then Application, what should not be a value?
 isVal :: Context -> Term -> Bool
 isVal _ (Abs _ _ _) = True
 isVal _ Tru         = True
@@ -185,6 +201,7 @@ isVal _ Z           = True
 isVal _ Unit        = True
 isVal c (S n)       = isVal c n
 isVal c (As t1 _)   = isVal c t1
+isVal c (Pair t1 t2) = isVal c t1 && isVal c t2
 isVal _ _           = False
 
 -- Single Step Evaluation Function
@@ -192,20 +209,24 @@ singleEval :: Context -> Term -> Maybe Term
 singleEval ctx t =
   case t of
     (App (Abs _ _ t12) v2) | isVal ctx v2 -> pure $ substTop v2 t12
-    (App v1@(Abs _ _ _) t2) -> App v1 <$> singleEval ctx t2
-    (App t1 t2) -> singleEval ctx t1 >>= \t1' -> pure $ App t1' t2
-    (If Tru t2 _) -> pure t2
-    (If Fls _ t3) -> pure t3
-    (If t1 t2 t3) ->
-      singleEval ctx t1 >>= \t1' -> pure $ If t1' t2 t3
-    (S n) | not $ isVal ctx n-> S <$> singleEval ctx n
-    (Case Z m _ _) -> pure m
-    (Case (S l) _ _ n) | isVal ctx l -> pure $ substTop l n
-    (Case l m x n) ->
-      singleEval ctx l >>= \l' -> pure $ Case l' m x n
-    (As t1 _) -> pure t1
-    (Let _ v1 t2) | isVal ctx v1 -> pure $ substTop v1 t2
-    (Let v t1 t2) -> singleEval ctx t1 >>= \t1' -> pure $ Let v t1' t2
+    (App v1@(Abs _ _ _) t2)               -> App v1 <$> singleEval ctx t2
+    (App t1 t2)                           -> singleEval ctx t1 >>= \t1' -> pure $ App t1' t2
+    (If Tru t2 _)                         -> pure t2
+    (If Fls _ t3)                         -> pure t3
+    (If t1 t2 t3)                         -> singleEval ctx t1 >>= \t1' -> pure $ If t1' t2 t3
+    (S n) | not $ isVal ctx n             -> S <$> singleEval ctx n
+    (Case Z m _ _)                        -> pure m
+    (Case (S l) _ _ n) | isVal ctx l      -> pure $ substTop l n
+    (Case l m x n)                        -> singleEval ctx l >>= \l' -> pure $ Case l' m x n
+    (As t1 _)                             -> pure t1
+    (Let _ v1 t2) | isVal ctx v1          -> pure $ substTop v1 t2
+    (Let v t1 t2)                         -> singleEval ctx t1 >>= \t1' -> pure $ Let v t1' t2
+    (Fst (Pair t1 _))                     -> pure t1
+    (Fst t1)                              -> singleEval ctx t1 >>= \t1' -> pure $ Fst t1'
+    (Snd (Pair _ t2))                     -> pure t2
+    (Snd t1)                              -> singleEval ctx t1 >>= \t1' -> pure $ Snd t1'
+    (Pair t1 t2) | not $ isVal ctx t1     -> singleEval ctx t1 >>= \v1 -> pure $ Pair v1 t2
+    (Pair t1 t2)                          -> singleEval ctx t2 >>= \v2 -> pure $ Pair t1 v2
     _ -> Nothing
 
 -- Multistep Evaluation Function

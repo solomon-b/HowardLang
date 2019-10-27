@@ -27,8 +27,11 @@ term ::= <var>
        | "Unit"
        | "case" <term> "of" "Z" "=>" <term> "|" "(S" <var>")" "=>" <term>
        | "if: " <term> "then:" <term> "else:" <term>
+       | {term, term}
+       | "fst" <term>
+       | "snd" <term>
 
-type ::= "Unit" | "Bool" | "Nat" | <type> "->" <type>
+type ::= "Unit" | "Bool" | "Nat" | <type> "->" <type> | <type> "X" <type>
 
 -}
 
@@ -66,6 +69,9 @@ symbol = L.symbol sc
 
 parens :: Parser a -> Parser a
 parens p = between (symbol "(") (symbol ")") p
+
+bracket :: Parser a -> Parser a
+bracket p = between (symbol "{") (symbol "}") p
 
 parensOpt :: Parser a -> Parser a
 parensOpt p = parens p <|> p
@@ -110,6 +116,8 @@ rws = [ "if"
       , "let"
       , "in"
       , "="
+      , "fst"
+      , "snd"
       ]
 
 identifier :: Parser String
@@ -146,8 +154,15 @@ pArrow = do
   types <- (parens pArrow <|> pNatT <|> pBoolT <|> pUnitT) `sepBy1` arrow
   pure $ foldr1 FuncT types
 
+pPairT :: Parser Type
+pPairT = do
+  ty1 <- parseType
+  void $ symbol "X"
+  ty2 <- parseType
+  pure $ PairT ty1 ty2
+
 parseType :: Parser Type
-parseType = try pArrow <|> pBoolT <|> pNatT
+parseType = try pArrow <|> pPairT <|> pBoolT <|> pNatT
 
 
 -- | Terms:
@@ -190,6 +205,13 @@ pNat = do
    digits <- fromIntegral <$> integer
    pure . foldr (\a b -> a b) Z $ replicate digits S
 
+pPair :: Parser Term
+pPair = bracket $ do
+  t1 <- pTerm
+  void $ symbol ","
+  t2 <- pTerm
+  pure $ Pair t1 t2
+
 pAs :: Parser Term
 pAs = try $ do
   t1 <- pValues
@@ -221,6 +243,18 @@ pLet = do
   t2 <- local (updateEnv var) pTerm
   pure $ Let var t1 t2
 
+pFst :: Parser Term
+pFst = do
+  rword "fst"
+  t <- pTerm
+  pure $ Fst t
+
+pSnd :: Parser Term
+pSnd = do
+  rword "snd"
+  t <- pTerm
+  pure $ Snd t
+
 updateEnv :: Varname -> Bindings -> Bindings
 updateEnv var env = var : env
 
@@ -235,10 +269,10 @@ pAbs = do
   pure (Abs var ty term)
 
 pValues :: Parser Term
-pValues = pUnit <|> pBool <|> pNat <|> pPeano <|> pVar
+pValues = pPair <|> pUnit <|> pBool <|> pNat <|> pPeano <|> pVar
 
 pStmts :: Parser Term
-pStmts = pCase <|> pAbs <|> pLet <|> pAs
+pStmts = pCase <|> pAbs <|> pLet <|> pAs <|> pFst <|> pSnd
 
 -- TODO: Fix parser bug when an extra close paren is present:
 -- > ((\x:Bool.True) True)) True
