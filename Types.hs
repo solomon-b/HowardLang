@@ -5,14 +5,18 @@ import Control.Exception (Exception)
 import Control.Monad.Except
 import Control.Monad.Identity
 import Control.Monad.Reader
+
 import Data.Data
 import Data.List
+import qualified Data.Text as T
+import Data.Text.Prettyprint.Doc
 
 import Text.Megaparsec
 
 type Varname = String
 type DeBruijn = Int
 type ContextLength = Int
+
 
 data Term
   = Var DeBruijn
@@ -45,6 +49,10 @@ instance Show Term where
   show (As t1 ty) = show t1 ++ " as " ++ show ty
   show (Let v t1 t2) = "Let " ++ v ++ " = " ++ show t1 ++ " in " ++ show t2
 
+-- TODO: Learn how to use `prettyprinter` and replace my bespoke printer
+instance Pretty Term where
+  pretty = viaShow
+
 data Type = FuncT Type Type | BoolT | NatT | UnitT
   deriving Eq
 
@@ -57,6 +65,10 @@ instance Show Type where
   show (FuncT f1@(FuncT _ _) t2) = "(" ++ show f1 ++ ")" ++ " -> " ++ show t2
   show (FuncT t1 f2@(FuncT _ _)) = show t1 ++ " -> " ++ "(" ++ show f2 ++ ")"
   show (FuncT t1 t2) = show t1 ++ " -> " ++ show t2
+
+instance Pretty Type where
+  pretty = viaShow
+
 
 -- | Context Types
 type Bindings = [Varname]

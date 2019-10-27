@@ -12,6 +12,26 @@ import qualified Text.Megaparsec.Char.Lexer as L
 
 import TypedLambdaCalcInitial.Types
 
+{-
+BNF Grammer:
+
+var ::= <String>
+
+term ::= <var>
+       | "\" <var> ":" <type> "." <term>
+       | <term> <term>
+       | "S" <term>
+       | "Z"
+       | "True"
+       | "False"
+       | "Unit"
+       | "case" <term> "of" "Z" "=>" <term> "|" "(S" <var>")" "=>" <term>
+       | "if: " <term> "then:" <term> "else:" <term>
+
+type ::= "Unit" | "Bool" | "Nat" | <type> "->" <type>
+
+-}
+
 -- TODO: look into deriving MonadParsec
 -- newtype Parser a = Parser { runParser :: ParsecT Void String (Reader Bindings) a }
 --   deriving MonadParsec
