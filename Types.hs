@@ -52,6 +52,8 @@ instance Show Term where
   show (As t1 ty) = show t1 ++ " as " ++ show ty
   show (Let v t1 t2) = "Let " ++ v ++ " = " ++ show t1 ++ " in " ++ show t2
   show (Pair t1 t2) = "{" ++ show t1 ++ ", " ++ show t2 ++ "}"
+  show (Fst t) = "fst " ++ show t
+  show (Snd t) = "snd " ++ show t
 {-
 -- TODO: Learn how to use `prettyprinter` and replace my bespoke printer
 instance Pretty Term where

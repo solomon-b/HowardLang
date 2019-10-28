@@ -213,8 +213,8 @@ pPair = bracket $ do
   pure $ Pair t1 t2
 
 pAs :: Parser Term
-pAs = try $ do
-  t1 <- pValues
+pAs = try . parens $ do
+  t1 <- pTerm
   rword "as"
   ty <- parseType
   pure $ As t1 ty
