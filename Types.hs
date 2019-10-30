@@ -1,3 +1,4 @@
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 module TypedLambdaCalcInitial.Types where
 
@@ -5,7 +6,7 @@ import Control.Exception (Exception)
 import Control.Monad.Except
 import Control.Monad.Identity
 import Control.Monad.Reader
-
+  
 import Data.Data
 import Data.List
 --import qualified Data.Text as T
@@ -34,10 +35,28 @@ data Term
   | Pair Term Term
   | Fst Term
   | Snd Term
+  | Tuple [Term]
+  | Get Term Term
   deriving Eq
 
+data Nat = Z' | S' Nat
+  deriving Show
+
+data TermS t where
+  VarS :: DeBruijn -> TermS t
+  AbsS :: Varname -> Type -> TermS t -> TermS t
+  AppS :: TermS t -> TermS t -> TermS t
+  BooS :: Bool -> TermS Bool
+  NatS :: Nat -> TermS Nat
+
+instance Show t => Show (TermS t) where
+  show (VarS i) = "idx " ++ show i
+  show (AbsS v ty t1) = "(λ " ++ v ++ " : " ++ show ty ++ ". " ++ show t1 ++ ")"
+
+
+
 instance Show Term where
-  show (Var i) = show i
+  show (Var i) = "idx " ++ show i
   show (Abs v ty t1) = "(λ " ++ v ++ " : " ++ show ty ++ ". " ++ show t1 ++ ")"
   show (App t1 t2) = show t1 ++ " " ++ show t2
   show Tru = "True"
@@ -54,13 +73,15 @@ instance Show Term where
   show (Pair t1 t2) = "{" ++ show t1 ++ ", " ++ show t2 ++ "}"
   show (Fst t) = "fst " ++ show t
   show (Snd t) = "snd " ++ show t
+  show (Tuple xs) = "<" ++ intersperse ',' (unwords (show <$> xs)) ++ ">"
+  show (Get t1 t2) = show t2 ++ "[" ++ show t1 ++ "]"
 {-
 -- TODO: Learn how to use `prettyprinter` and replace my bespoke printer
 instance Pretty Term where
   pretty = viaShow
 -}
 
-data Type = FuncT Type Type | BoolT | NatT | UnitT | PairT Type Type
+data Type = FuncT Type Type | BoolT | NatT | UnitT | PairT Type Type | TupleT [Type]
   deriving Eq
 
 instance Show Type where
@@ -73,6 +94,7 @@ instance Show Type where
   show (FuncT t1 f2@(FuncT _ _)) = show t1 ++ " -> " ++ "(" ++ show f2 ++ ")"
   show (FuncT t1 t2) = show t1 ++ " -> " ++ show t2
   show (PairT t1 t2) = show t1 ++ " X " ++ show t2
+  show (TupleT ts) = "<" ++ intersperse ',' (unwords (show <$> ts)) ++ ">"
 
 {-
 instance Pretty Type where
@@ -182,7 +204,7 @@ typecheck (Snd (Pair _ t2)) = typecheck t2
 typecheck (Snd t) = typecheck t >>= \case
   (PairT _ ty2) -> pure ty2
   ty -> (throwError $ T $ TypeError $ "Expected a Pair but got: " ++ show ty)
-
+--typecheck (Tuple ts) = pure . TupleT $ traverse typecheck ts
 
 typeMismatch :: Term -> Type -> Term -> Type -> TypeErr
 typeMismatch t1 ty1 t2 ty2 = TypeError (show t1 ++ " :: " ++ show ty1 ++ " does not match " ++ show t2 ++ " :: " ++ show ty2)
