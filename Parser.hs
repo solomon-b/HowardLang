@@ -99,6 +99,9 @@ phatArrow = void $ symbol "=>"
 pipe :: Parser ()
 pipe = void $ symbol "|"
 
+lambda :: Parser ()
+lambda = void $ symbol "λ" <|> symbol "\\"
+
 rword :: String -> Parser ()
 rword w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
 
@@ -262,7 +265,7 @@ updateEnv var env = var : env
 
 pAbs :: Parser Term
 pAbs = do
-  void $ symbol "\\"
+  lambda
   var <- identifier
   colon
   ty <- parseType
