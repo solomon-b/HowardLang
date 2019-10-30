@@ -1,4 +1,3 @@
-{-# LANGUAGE GADTs #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 module TypedLambdaCalcInitial.Types where
 
@@ -6,7 +5,7 @@ import Control.Exception (Exception)
 import Control.Monad.Except
 import Control.Monad.Identity
 import Control.Monad.Reader
-  
+
 import Data.Data
 import Data.List
 --import qualified Data.Text as T
@@ -38,21 +37,6 @@ data Term
   | Tuple [Term]
   | Get Term Term
   deriving Eq
-
-data Nat = Z' | S' Nat
-  deriving Show
-
-data TermS t where
-  VarS :: DeBruijn -> TermS t
-  AbsS :: Varname -> Type -> TermS t -> TermS t
-  AppS :: TermS t -> TermS t -> TermS t
-  BooS :: Bool -> TermS Bool
-  NatS :: Nat -> TermS Nat
-
-instance Show t => Show (TermS t) where
-  show (VarS i) = "idx " ++ show i
-  show (AbsS v ty t1) = "(λ " ++ v ++ " : " ++ show ty ++ ". " ++ show t1 ++ ")"
-
 
 
 instance Show Term where
