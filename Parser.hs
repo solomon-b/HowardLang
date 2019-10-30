@@ -17,21 +17,23 @@ BNF Grammer:
 
 var ::= <String>
 
-term ::= <var>
-       | "\" <var> ":" <type> "." <term>
-       | <term> <term>
-       | "S" <term>
-       | "Z"
-       | "True"
-       | "False"
-       | "Unit"
-       | "case" <term> "of" "Z" "=>" <term> "|" "(S" <var>")" "=>" <term>
-       | "if: " <term> "then:" <term> "else:" <term>
-       | {term, term}
-       | "fst" <term>
-       | "snd" <term>
+term = <var>
+     | ("\" | "λ") <var> ":" <type> "." <term>
+     | <term> <term>
+     | "S" <term>
+     | "Z"
+     | "True"
+     | "False"
+     | "Unit"
+     | "case" <term> "of" "Z" "=>" <term> "|" "(S" <var>")" "=>" <term>
+     | "if: " <term> "then:" <term> "else:" <term>
+     | "{"term, term "}"
+     | "fst" <term>
+     | "snd" <term>
+     | "<" <term>, <term> ... ">"
+     | "get" term term
 
-type ::= "Unit" | "Bool" | "Nat" | <type> "->" <type> | <type> "X" <type>
+type ::= "Unit" | "Bool" | "Nat" | <type> "->" <type> | <type> "X" <type> | "<" <term> "," <term> ... ">"
 
 -}
 
