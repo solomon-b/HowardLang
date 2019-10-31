@@ -89,6 +89,9 @@ instance Pretty Type where
 type Bindings = [Varname]
 type Context = [(Varname, Type)]
 
+updateContext :: (Varname, Type) -> Context -> Context
+updateContext t ctx = t:ctx
+
 -- | Error Types
 data UnboundError = UnboundError String
   deriving (Eq, Data, Typeable, Ord, Read, Show)
