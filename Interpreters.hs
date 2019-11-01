@@ -26,21 +26,6 @@ prettyDecl :: P.Pretty a => a -> [P.Doc ann] -> P.Doc ann
 prettyDecl n tys = P.pretty n P.<+> prettyType tys
 -}
 
-primeSieve :: [Integer]
-primeSieve = 2 : [i | i <- [3..], and [rem i p > 0 | p <- takeWhile (\p -> p^(2 :: Integer) <= i) primeSieve]]
-
-appendPrime :: String -> Int -> String
-appendPrime str i = str ++ show (primeSieve !! i)
-
-pickFreshName :: Bindings -> String -> (Bindings, String)
-pickFreshName ctx str = f ctx str 0
-  where f :: Bindings -> String -> Int -> (Bindings, String)
-        f ctx' str' i = let res = find (== str') ctx'
-                        in case res of
-                             Nothing -> (str' : ctx', str')
-                             Just _  -> let str'' = appendPrime str i
-                                        in f ctx' str'' (i+1)
-
 -- TODO: Bug fix. This blows up on `> (\x:Nat. S x)`
 showNat :: Term -> String
 showNat nat = show $ f nat
@@ -62,9 +47,8 @@ pretty t = runReader (f t) []
     f (Var x) = ask >>= \ctx -> pure $ ctx !! x
     f (Abs x ty t1) = do
       ctx <- ask
-      let (ctx', x') = pickFreshName ctx x
-      t1' <- local (const ctx') (f t1)
-      pure $ "(λ " ++ x' ++ " : " ++ show ty ++ ". " ++ t1' ++ ")"
+      t1' <- local (const (x:ctx)) (f t1)
+      pure $ "(λ " ++ x ++ " : " ++ show ty ++ ". " ++ t1' ++ ")"
     f Tru = pure "True"
     f Fls = pure "False"
     f Unit = pure "Unit"
@@ -84,11 +68,10 @@ pretty t = runReader (f t) []
       ctx <- ask
       l' <- f l
       m' <- f m
-      let (ctx', v') = pickFreshName ctx v
-      n' <- local (const ctx') (f n)
+      n' <- local (const (v:ctx)) (f n)
       pure $ "case "   ++ l' ++ " of: " ++
              "Z => " ++ m' ++ " | "  ++
-             "S "    ++ v'  ++ " => " ++ n'
+             "S "    ++ v  ++ " => " ++ n'
     f (Let x t1 t2) = do
       t1' <- f t1
       t2' <- f t2

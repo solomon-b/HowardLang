@@ -101,9 +101,9 @@ instance ShowErrorComponent UnboundError where
     "Unbound error: " ++ msg
 
 type ParseErr = ParseErrorBundle String UnboundError
-data TypeErr = TypeError String deriving Show
+data TypeErr = TypeError String deriving (Show, Eq)
 
-data Err = P ParseErr | T TypeErr deriving Show
+data Err = P ParseErr | T TypeErr deriving (Show, Eq)
 
 instance Exception Err
 
