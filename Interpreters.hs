@@ -35,7 +35,7 @@ showNat nat = show $ f nat
     f (S n) = 1 + f n
     f _ = undefined
 
--- TODO: Implement `Show Term` Instance
+-- TODO: Replace this with a more robust pretty printer
 pretty :: Term -> String
 pretty t = runReader (f t) []
   where

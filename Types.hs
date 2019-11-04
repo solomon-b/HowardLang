@@ -12,6 +12,7 @@ import Data.List
 --import Data.Text.Prettyprint.Doc
 
 import Text.Megaparsec
+import Debug.Trace
 
 type Varname = String
 type DeBruijn = Int
@@ -42,7 +43,7 @@ data Term
 instance Show Term where
   show (Var i) = "idx " ++ show i
   show (Abs v ty t1) = "(λ " ++ v ++ " : " ++ show ty ++ ". " ++ show t1 ++ ")"
-  show (App t1 t2) = show t1 ++ " " ++ show t2
+  show (App t1 t2) = "(eval " ++ show t1 ++ " " ++ show t2 ++ ")"
   show Tru = "True"
   show Fls = "False"
   show (If t1 t2 t3) = "if: " ++ show t1 ++ " then: " ++ show t2 ++ " else: " ++ show t3
@@ -137,9 +138,7 @@ getBinding :: Context -> Int -> Type
 getBinding xs i = snd $ xs !! i
 
 typecheck ::
-  ( MonadError Err m
-  , MonadReader Context m) =>
-  Term -> m Type
+  ( MonadError Err m , MonadReader Context m) => Term -> m Type
 typecheck (Var i) = asks (flip getBinding i)
 typecheck (Abs var ty t2) = do
   ty2 <- local ((:) (var, ty)) (typecheck t2)
@@ -150,7 +149,7 @@ typecheck (App t1 t2) = typecheck t1 >>= \case
     if ty1' == ty1
       then pure ty2
       else throwError $ T $ typeMismatch t1 ty1 t2 ty1'
-  ty -> throwError $ T $ TypeError $ show t1 ++ " :: " ++ show ty ++ "is not a function"
+  ty -> throwError $ T $ TypeError $ show t1 ++ " :: " ++ show ty ++ " is not a function"
 typecheck Tru = pure BoolT
 typecheck Fls = pure BoolT
 typecheck (If t1 t2 t3) = typecheck t1 >>= \case
@@ -174,11 +173,12 @@ typecheck (Case n z v s) = typecheck n >>= \case
       else throwError $ T $ typeMismatch z zTy s sTy
   ty -> throwError $ T $ typeErr n ty NatT
 typecheck Unit = pure UnitT
-typecheck (As t1 ty) = typecheck t1 >>= \ty1' ->
-                       if ty1' == ty
-                          then pure ty
-                          else throwError $ T $ typeErr t1 ty1' ty
-typecheck (Let _ t1 t2) = typecheck t1 >> typecheck t2 -- Is this suspect?
+typecheck (As t1 ty) =
+  typecheck t1 >>= \ty1' ->
+    if ty1' == ty
+       then pure ty
+       else throwError $ T $ typeErr t1 ty1' ty
+typecheck (Let v t1 t2) = typecheck t1 >>= \ty1 -> local ((:) (v, ty1)) (typecheck t2)
 typecheck (Pair t1 t2) = do
   ty1 <- typecheck t1
   ty2 <- typecheck t2
@@ -197,4 +197,5 @@ typeMismatch :: Term -> Type -> Term -> Type -> TypeErr
 typeMismatch t1 ty1 t2 ty2 = TypeError (show t1 ++ " :: " ++ show ty1 ++ " does not match " ++ show t2 ++ " :: " ++ show ty2)
 
 typeErr :: Term -> Type -> Type -> TypeErr
-typeErr t1 ty1 t2 = TypeError $ show t1 ++ " :: " ++ show ty1 ++ "does not match " ++ show t2
+typeErr t1 ty1 t2 = TypeError $ show t1 ++ " :: " ++ show ty1 ++ " does not match " ++ show t2
+

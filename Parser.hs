@@ -284,8 +284,8 @@ pStmts = pCase <|> pAbs <|> pLet <|> pAs <|> pFst <|> pSnd
 -- True
 pTerm :: Parser Term
 pTerm = foldl1 App <$> (  pIf
-                           <|> pStmts
-                           <|> pValues
-                           <|> parens pTerm
-                            ) `sepBy1` sc
+                      <|> pStmts
+                      <|> pValues
+                      <|> parens pTerm
+                       ) `sepBy1` sc
 

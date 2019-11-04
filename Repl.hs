@@ -110,7 +110,7 @@ repl = runRepl loop
                     parsed  <- runParse str'
                     checked <- runTypecheckM [] (typecheck parsed)
                     reduced <- (Right $ multiStepEval [] parsed :: Either Err Term)
-                    return $ pretty reduced
+                    return $ show reduced --pretty reduced
               either (outputStrLn . showE) outputStrLn res
               loop
 {-
