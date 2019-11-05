@@ -18,7 +18,9 @@ import System.Console.Repline
 import System.Exit
 
 import TypedLambdaCalcInitial.Types
+import TypedLambdaCalcInitial.Typechecker
 import TypedLambdaCalcInitial.Parser
+import TypedLambdaCalcInitial.PrettyPrinter
 import TypedLambdaCalcInitial.Interpreters
 
 ------------
@@ -46,7 +48,7 @@ instance ShowE Err where
   showE (P err) = showE err
 
 instance ShowE TypeErr where
-  showE = show
+  showE (TypeError err) = err
 
 instance ShowE ParseErr where
   showE = errorBundlePretty
