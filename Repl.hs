@@ -10,62 +10,30 @@
 --module TypedLambdaCalcInitial.Repl (repl) where
 module TypedLambdaCalcInitial.Repl where
 
-import Control.Exception (Exception)
-import Control.Monad
 import Control.Monad.Except
-import Control.Monad.IO.Class
-import Control.Monad.Trans
-import Control.Monad.Trans.Maybe
-import Control.Monad.Trans.Except
-
-import Data.Void
-
+import Data.List
 import Text.Megaparsec.Error
 
-import qualified System.Console.Haskeline as H
-import System.Console.Haskeline.MonadException
+import System.Console.Repline
+import System.Exit
 
 import TypedLambdaCalcInitial.Types
 import TypedLambdaCalcInitial.Parser
 import TypedLambdaCalcInitial.Interpreters
 
+------------
+--- Main ---
+------------
 
--------------
---- ReplT ---
--------------
+type Repl a = HaskelineT IO a
 
-type Repl = ReplT IO
-newtype ReplT (m :: * -> *) a = ReplT { unRepl :: H.InputT m a }
-    deriving (Monad, Functor, Applicative, MonadIO, MonadException, MonadTrans, MonadRepl)
+repl :: IO ()
+repl = evalRepl (pure "λ> ") cmd options (Just ':') (Word completer) (pure ())
 
-runReplT :: MonadException m =>  ReplT m a -> m a
-runReplT m = H.runInputT H.defaultSettings (H.withInterrupt (unRepl m))
 
-runRepl :: Repl a -> IO a
-runRepl = runReplT
-
-instance MonadException m => MonadException (ExceptT e m) where
-    controlIO f = ExceptT $ controlIO $ \(RunIO run) -> let
-        run' = RunIO (fmap ExceptT . run . runExceptT)
-        in runExceptT <$> f run'
-
-class MonadException m => MonadRepl m where
-    getInputLine :: String -> m (Maybe String)
-    getInputChar :: String -> m (Maybe Char)
-    outputStr    :: String -> m ()
-    outputStrLn  :: String -> m ()
-
-instance MonadException m => MonadRepl (H.InputT m) where
-    getInputLine = H.getInputLine
-    getInputChar = H.getInputChar
-    outputStr = H.outputStr
-    outputStrLn = H.outputStrLn
-
-instance MonadRepl m => MonadRepl (ExceptT e m) where
-    getInputLine = lift . getInputLine
-    getInputChar = lift . getInputChar
-    outputStr = lift . outputStr
-    outputStrLn = lift . outputStrLn
+----------------------
+--- Error Handling ---
+----------------------
 
 class ShowE e where
   showE :: e -> String
@@ -83,55 +51,54 @@ instance ShowE TypeErr where
 instance ShowE ParseErr where
   showE = errorBundlePretty
 
-abort :: (MonadRepl m) => m a
-abort = throwIO H.Interrupt
+hoistErr :: ShowE e => Either e a -> Repl a
+hoistErr (Right val) = return val
+hoistErr (Left err) = do
+  liftIO $ putStrLn $ showE err
+  abort
 
-hoistError :: (MonadRepl m, ShowE e, MonadError e m) => Either e a -> m a
-hoistError (Left err) = outputStrLn (showE err) >> throwIO ReplInterrupt
-hoistError (Right a) = return a
+----------------
+--- Commands ---
+----------------
 
-data ReplInterrupt = ReplInterrupt
-  deriving Show
+options :: [(String, [String] -> Repl ())]
+options = [
+    ("help", help)
+  , ("h", help)
+  , ("quit", quit)
+  , ("q", quit)
+  , ("type", typeof)
+  , ("t", typeof)
 
-instance Exception ReplInterrupt
+  ]
 
-handleReplInterrupt :: MonadRepl m => ReplInterrupt -> m ()
-handleReplInterrupt _ = pure ()
+cmd :: String -> Repl ()
+cmd input =
+  let res = do
+        parsed  <- runParse input
+        _ <- runTypecheckM [] (typecheck parsed)
+        reduced <- (Right $ multiStepEval [] parsed :: Either Err Term)
+        return $ pretty reduced
+  in liftIO $ either (putStrLn . showE) putStrLn res
 
-repl :: IO ()
-repl = runRepl loop
-  where loop :: MonadRepl m => m ()
-        loop = do
-          str <- getInputLine "> "
-          case str of
-            Nothing -> abort
-            Just str' -> do
-              let res = do
-                    parsed  <- runParse str'
-                    checked <- runTypecheckM [] (typecheck parsed)
-                    reduced <- (Right $ multiStepEval [] parsed :: Either Err Term)
-                    return $ show reduced --pretty reduced
-              either (outputStrLn . showE) outputStrLn res
-              loop
-{-
-data LC a
-   = Var' a
-   | App' (LC a) (LC a)
-   | Abs' (LC (Maybe a))
-   deriving (Functor, Foldable, Traversable)
+quit :: a -> Repl ()
+quit _ = liftIO $ exitSuccess
 
-instance Applicative LC where
-  pure = Var'
-  (<*>) = ap
+typeof :: [String] -> Repl ()
+typeof strs = do
+  term <- hoistErr . runParse $ mconcat strs
+  ty <- hoistErr $ runTypecheckM [] (typecheck term)
+  liftIO $ print ty
 
-instance Monad LC where
-  Var' a >>= f = f a
-  App' l r >>= f = App' (l >>= f) (r >>= f)
-  Abs' k >>= f = Abs' $ k >>= \case
-    Nothing -> pure Nothing
-    Just a -> Just <$> f a
+help :: a -> Repl ()
+help _ = liftIO $ do
+  putStrLn "Top Level Commands:"
+  putStrLn ":quit                       Quits"
+  putStrLn ":help                       Prints this message"
+  putStrLn ":type <expr>                Checks the type of an expression"
 
-lam :: Eq a => a -> LC a -> LC a
-lam v b = Abs' $ bind v <$> b where
-  bind v u = u <$ guard (u /= v)
--}
+-- TODO: Implement stateful completer or not?
+completer :: Monad m => WordCompleter m
+completer n = do
+  let names = []
+  return $ filter (isPrefixOf n) names
