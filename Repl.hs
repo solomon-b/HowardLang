@@ -85,10 +85,11 @@ quit :: a -> Repl ()
 quit _ = liftIO $ exitSuccess
 
 typeof :: [String] -> Repl ()
-typeof strs = do
-  term <- hoistErr . runParse $ unwords strs
-  ty <- hoistErr $ runTypecheckM [] (typecheck term)
-  liftIO $ print ty
+typeof strs =
+  let ty = do
+        term <- runParse $ unwords strs
+        show <$> runTypecheckM [] (typecheck term)
+  in liftIO $ either (putStrLn . showE) putStrLn ty
 
 help :: a -> Repl ()
 help _ = liftIO $ do
