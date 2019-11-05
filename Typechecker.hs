@@ -47,9 +47,9 @@ typecheck (Abs var ty t2) = do
 typecheck (App t1 t2) = typecheck t1 >>= \case
   FuncT ty1 ty2 -> do
     ty2' <- typecheck t2
-      if ty2' == ty1
-      then pure ty2
-      else throwError $ T $ typeErr t1 ty1 ty2'
+    if ty2' == ty1
+    then pure ty2
+    else throwError $ T $ typeErr t1 ty1 ty2'
   ty -> throwError $ T $ TypeError $ show t1 ++ " :: " ++ show ty ++ " is not a function"
 typecheck Tru = pure BoolT
 typecheck Fls = pure BoolT
@@ -104,19 +104,3 @@ typeErr t1 ty1 ty2 = TypeError $
   "Expected Type: " ++ show ty2 ++ "\n\r" ++
   "Actual Type: "   ++ show ty1 ++ "\n\r" ++
   "For Term: "      ++ show t1 -- pretty t1
-
-
-{-
-TODO: Fix this fun typechecker bug:
-λ> (\f:Nat->Nat.\n:Nat.let x = case n of Z => (\z:Nat.\q:Nat.n) | (S m) => (\h:Nat.\z:Nat.m) in x)
-Type Error:
-Expected Type: Nat -> (Nat -> (Nat -> (Nat -> Nat)))
-Actual Type: Nat -> (Nat -> Nat)
-For Term: Abs "z" Nat (Abs "q" Nat (Var 2))
-
-I expect the overall expression to be:
-`(Nat -> Nat) -> Nat -> Nat -> Nat -> Nat`,
-
-And for the subexpression being reported, the actual type should be the expected type.
-
--}
