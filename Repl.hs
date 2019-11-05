@@ -86,7 +86,7 @@ quit _ = liftIO $ exitSuccess
 
 typeof :: [String] -> Repl ()
 typeof strs = do
-  term <- hoistErr . runParse $ mconcat strs
+  term <- hoistErr . runParse $ unwords strs
   ty <- hoistErr $ runTypecheckM [] (typecheck term)
   liftIO $ print ty
 
