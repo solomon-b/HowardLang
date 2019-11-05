@@ -1,3 +1,7 @@
+:t (\z:Nat.\q:Nat.q)
+(\z:Nat.\q:Nat.q)
+(\f:Nat->Nat.\n:Nat.let x = case n of Z => (\z:Nat.\q:Nat.n) | (S m) => (\h:Nat.\z:Nat.m) in n)
+(\f:Nat->Nat.\n:Nat.let x = case n of Z => (\z:Nat.\q:Nat.n) | (S m) => (\h:Nat.\z:Nat.m) in x)
 (\f:Nat->Nat.\n:Nat.let x = case n of Z => (\z:Nat.\q:Nat.n) | (S m) => (\h:Nat.\z:Nat.m) in x)
 (\f:Nat->Nat.\n:Nat.let x = case n of Z => (\z:Nat.\q:Nat.n) | (S m) => (\h:Nat.\z:Nat.m) in x)
 (\f:Nat->Nat.\n:Nat.let x = case n of Z => (\z:Nat.\q:Nat.n) | (S m) => (\h:Nat.\z:Nat.m) in x)

@@ -71,8 +71,9 @@ pretty t = runReader (f t) []
              "Z => " ++ m' ++ " | "  ++
              "S "    ++ v  ++ " => " ++ n'
     f (Let x t1 t2) = do
+      ctx <- ask
       t1' <- f t1
-      t2' <- f t2
+      t2' <- local (const (x:ctx)) (f t2)
       pure $ "let " ++ x ++ " = " ++ t1' ++ " in " ++ t2'
     f (Pair t1 t2) = do
       t1' <- f t1

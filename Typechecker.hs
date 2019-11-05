@@ -6,6 +6,8 @@ import Control.Monad.Reader
 
 import Data.List
 
+import Debug.Trace
+
 import TypedLambdaCalcInitial.Types
 import TypedLambdaCalcInitial.PrettyPrinter
 
@@ -45,7 +47,7 @@ typecheck (Abs var ty t2) = do
 typecheck (App t1 t2) = typecheck t1 >>= \case
   FuncT ty1 ty2 -> do
     ty2' <- typecheck t2
-    if ty2' == ty1
+      if ty2' == ty1
       then pure ty2
       else throwError $ T $ typeErr t1 ty1 ty2'
   ty -> throwError $ T $ TypeError $ show t1 ++ " :: " ++ show ty ++ " is not a function"
@@ -66,7 +68,7 @@ typecheck (S t) = typecheck t >>= \case
 typecheck (Case n z v s) = typecheck n >>= \case
   NatT -> do
     zTy <- typecheck z
-    sTy <- local ((:) (v, zTy)) (typecheck s)
+    sTy <- local ((:) (v, NatT)) (typecheck s)
     if zTy == sTy
       then pure sTy
       else throwError $ T $ typeErr z zTy sTy
@@ -80,7 +82,7 @@ typecheck (As t1 ty) =
 --typecheck (Let v t1 t2) = typecheck t1 >>= \ty1 -> local ((:) (v, ty1)) (typecheck t2)
 typecheck (Let v t1 t2) = do
   ty1 <- typecheck t1
-  local ((:) (v, ty1)) (typecheck t2)
+  local ((:) (traceShowId v, ty1)) (typecheck t2)
 typecheck (Pair t1 t2) = do
   ty1 <- typecheck t1
   ty2 <- typecheck t2
@@ -116,4 +118,5 @@ I expect the overall expression to be:
 `(Nat -> Nat) -> Nat -> Nat -> Nat -> Nat`,
 
 And for the subexpression being reported, the actual type should be the expected type.
+
 -}
