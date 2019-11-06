@@ -6,8 +6,6 @@ import Control.Monad.Reader
 
 import Data.List
 
-import Debug.Trace
-
 import TypedLambdaCalcInitial.Types
 import TypedLambdaCalcInitial.PrettyPrinter
 
@@ -82,7 +80,7 @@ typecheck (As t1 ty) =
 --typecheck (Let v t1 t2) = typecheck t1 >>= \ty1 -> local ((:) (v, ty1)) (typecheck t2)
 typecheck (Let v t1 t2) = do
   ty1 <- typecheck t1
-  local ((:) (traceShowId v, ty1)) (typecheck t2)
+  local ((:) (v, ty1)) (typecheck t2)
 typecheck (Pair t1 t2) = do
   ty1 <- typecheck t1
   ty2 <- typecheck t2
