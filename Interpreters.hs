@@ -1,5 +1,6 @@
 module TypedLambdaCalcInitial.Interpreters where
 
+import Control.Applicative
 import Data.Monoid (Sum(..))
 
 import TypedLambdaCalcInitial.Types
@@ -116,6 +117,7 @@ isVal c (Pair t1 t2) = isVal c t1 && isVal c t2
 isVal c (Tuple ts)  = all (isVal c) ts
 isVal _ _           = False
 
+--TODO: Reimplement with `Data Term' a = Reduced a | Unreduced a`
 -- Single Step Evaluation Function
 singleEval :: Context -> Term -> Maybe Term
 singleEval ctx t =
@@ -139,6 +141,11 @@ singleEval ctx t =
     (Snd t1)                              -> singleEval ctx t1 >>= \t1' -> pure $ Snd t1'
     (Pair t1 t2) | not $ isVal ctx t1     -> singleEval ctx t1 >>= \v1 -> pure $ Pair v1 t2
     (Pair t1 t2)                          -> singleEval ctx t2 >>= \v2 -> pure $ Pair t1 v2
+    (Tuple ts) ->  do
+      let evalElem [] = Nothing
+          evalElem (x:xs) | isVal ctx x = let xs' = evalElem xs in ((:) x) <$> xs'
+          evalElem (x:xs) = let x' = singleEval ctx x in liftA2 (:) x' (pure xs)
+      Tuple <$> evalElem ts
     _ -> Nothing
 
 -- Multistep Evaluation Function
@@ -171,6 +178,7 @@ bigStepEval ctx (Fst t1) = bigStepEval ctx t1
 bigStepEval _ (Snd (Pair _ t2)) = t2
 bigStepEval ctx (Snd t1) = bigStepEval ctx t1
 bigStepEval ctx (Pair t1 t2) = Pair (bigStepEval ctx t1) (bigStepEval ctx t2)
+bigStepEval ctx (Tuple ts) = Tuple $ bigStepEval ctx <$> ts
 bigStepEval _ Unit = Unit
 bigStepEval _ Tru = Tru
 bigStepEval _ Fls = Fls
