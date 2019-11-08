@@ -1,6 +1,7 @@
 module TypedLambdaCalcInitial.PrettyPrinter where
 
 import Control.Monad.Reader
+import Data.List (intersperse)
 --import qualified Data.Text.Prettyprint.Doc as P
 
 import TypedLambdaCalcInitial.Types
@@ -81,3 +82,6 @@ pretty t = runReader (f t) []
       pure $ "{" ++ t1' ++ ", " ++ t2' ++ "}"
     f (Fst t1) = (++ "fst ") <$> f t1
     f (Snd t1) = (++ "snd ") <$> f t1
+    f (Tuple ts) = do
+      ts' <- traverse f ts
+      pure $ "<" ++ unwords (intersperse "," ts') ++ ">"

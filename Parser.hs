@@ -70,10 +70,13 @@ symbol :: String -> Parser String
 symbol = L.symbol sc
 
 parens :: Parser a -> Parser a
-parens p = between (symbol "(") (symbol ")") p
+parens = between (symbol "(") (symbol ")")
 
 bracket :: Parser a -> Parser a
-bracket p = between (symbol "{") (symbol "}") p
+bracket = between (symbol "{") (symbol "}")
+
+angleBracket :: Parser a -> Parser a
+angleBracket = between (symbol "<") (symbol ">")
 
 parensOpt :: Parser a -> Parser a
 parensOpt p = parens p <|> p
@@ -260,6 +263,10 @@ pSnd = do
   t <- pTerm
   pure $ Snd t
 
+-- TODO: Make this work for empty tuples
+pTuple :: Parser Term
+pTuple = angleBracket $ pTerm `sepBy` symbol "," >>= pure . Tuple
+
 updateEnv :: Varname -> Bindings -> Bindings
 updateEnv var env = var : env
 
@@ -274,7 +281,7 @@ pAbs = do
   pure (Abs var ty term)
 
 pValues :: Parser Term
-pValues = pPair <|> pUnit <|> pBool <|> pNat <|> pPeano <|> pVar
+pValues = pTuple <|> pPair <|> pUnit <|> pBool <|> pNat <|> pPeano <|> pVar
 
 pStmts :: Parser Term
 pStmts = pCase <|> pAbs <|> pLet <|> pAs <|> pFst <|> pSnd

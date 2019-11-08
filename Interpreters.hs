@@ -1,5 +1,6 @@
 module TypedLambdaCalcInitial.Interpreters where
 
+import Data.Monoid (Sum(..))
 
 import TypedLambdaCalcInitial.Types
 
@@ -8,7 +9,6 @@ import TypedLambdaCalcInitial.Types
 --- Depth ---
 -------------
 
--- TOD0:
 depth :: Term -> Integer
 depth (Var _) = 0
 depth (Abs _ _ t1) = 1 + depth t1
@@ -25,6 +25,8 @@ depth (Let _ t1 t2) = 1 + depth t1 + depth t2
 depth (Pair t1 t2) = depth t1 + depth t2
 depth (Fst t1) = depth t1
 depth (Snd t1) = depth t1
+depth (Tuple ts) = getSum $ foldMap (Sum . depth) ts
+depth (Get t1 t2) = depth t1 + depth t2
 
 
 ------------
@@ -59,6 +61,8 @@ shift target t = f 0 t
     f i (Pair t1 t2) = Pair (f i t1) (f i t2)
     f i (Fst t1) = Fst (f i t1)
     f i (Snd t1) = Snd (f i t1)
+    f i (Tuple ts) = Tuple (f i <$> ts)
+    f i (Get t1 t2) = Get (f i t1) (f i t2)
 
 {-
 Substitution Rules:
@@ -93,6 +97,8 @@ subst j s t = f 0 s t
         f c s' (Pair t1 t2) = Pair (f c s' t1) (f c s' t2)
         f c s' (Fst t1) = Fst (f c s' t1)
         f c s' (Snd t1) = Snd (f c s' t1)
+        f c s' (Tuple ts) = Tuple (f c s' <$> ts)
+        f c s' (Get t1 t2) = Get (f c s' t1) (f c s' t2)
 
 substTop :: Term -> Term -> Term
 substTop s t = shift (-1) (subst 0 (shift 1 s) t)
@@ -107,6 +113,7 @@ isVal _ Unit        = True
 isVal c (S n)       = isVal c n
 isVal c (As t1 _)   = isVal c t1
 isVal c (Pair t1 t2) = isVal c t1 && isVal c t2
+isVal c (Tuple ts)  = all (isVal c) ts
 isVal _ _           = False
 
 -- Single Step Evaluation Function
