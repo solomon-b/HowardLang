@@ -156,6 +156,17 @@ bigStepEval ctx (Case l m _ n) =
     (S l') -> bigStepEval ctx $ substTop l' n
     x -> error $ show x
 bigStepEval ctx (As t1 _) = bigStepEval ctx t1
+bigStepEval ctx (Let _ t1 t2) =
+  let t1' = bigStepEval ctx t1
+  in bigStepEval ctx $ substTop t1' t2
+bigStepEval _ (Fst (Pair t1 _)) = t1
+bigStepEval ctx (Fst t1) = bigStepEval ctx t1
+bigStepEval _ (Snd (Pair _ t2)) = t2
+bigStepEval ctx (Snd t1) = bigStepEval ctx t1
+bigStepEval ctx (Pair t1 t2) = Pair (bigStepEval ctx t1) (bigStepEval ctx t2)
+bigStepEval _ Unit = Unit
 bigStepEval _ Tru = Tru
 bigStepEval _ Fls = Fls
+bigStepEval _ Z = Z
+bigStepEval ctx (S t1) = S $ bigStepEval ctx t1
 bigStepEval _ x = error $ show x
