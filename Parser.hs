@@ -15,7 +15,31 @@ import TypedLambdaCalcInitial.Types
 {-
 BNF Grammer:
 
-var ::= <String>
+TERM = LIT | GROUP | S | APP | ABS | CASE | IF | PAIR | FST | SND | TUPLE | PROJ | RECORD
+GROUP = "(" TERM ")"
+VAR = <Alphanumeric String>
+DIGIT = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+INTEGER = DIGIT | INTEGER DIGIT
+LIT = INTEGER | "Z" | "True" | "False" | "Unit"
+
+S      = "S" EXPR
+APP    = TERM TERM
+ABS    = ("\" | "λ") VAR ":" TYPE "." TERM
+CASE   = "case" TERM "of" "Z" "=>" TERM "|" "(S" VAR ")" "=>" TERM
+IF     = "if: " TERM "then:" TERM "else:" TERM
+PAIR   = "{" TERM "," TERM "}"
+FST    = "fst" TERM
+SND    = "snd" TERM
+TUPLE  = "("TERM "," TERM "," ... ")"
+PROJ   = TERM.TERM
+RECORD = "{" VAR "=" TERM, ... "}"
+
+
+TYPE = "Unit" | "Bool" | "Nat" | TYPE "->" TYPE | TYPE "X" TYPE | "(" TYPE "," TYPE ... ")"
+
+
+
+var = <String>
 
 term = <var>
      | ("\" | "λ") <var> ":" <type> "." <term>
