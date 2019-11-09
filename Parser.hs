@@ -51,7 +51,7 @@ handleParseErr :: Either ParseErr Term -> Either Err Term
 handleParseErr val = either (Left . P) Right val
 
 runParse :: String -> Either Err Term
-runParse = handleParseErr . runIdentity . flip runReaderT [] . runParserT pTerm mempty
+runParse = handleParseErr . runIdentity . flip runReaderT [] . runParserT pMain mempty
 
 run :: Parser a -> String -> Either ParseErr a
 run p = runIdentity . flip runReaderT [] . runParserT p mempty
@@ -315,9 +315,6 @@ pValues = pTuple <|> pRecord <|> pPair <|> pUnit <|> pBool <|> pNat <|> pPeano <
 pStmts :: Parser Term
 pStmts = pGet <|> pCase <|> pAbs <|> pLet <|> pAs <|> pFst <|> pSnd
 
--- TODO: Fix parser bug when an extra close paren is present:
--- > ((\x:Bool.True) True)) True
--- True
 pTerm :: Parser Term
 pTerm = foldl1 App <$> (  pIf
                       <|> try pStmts
