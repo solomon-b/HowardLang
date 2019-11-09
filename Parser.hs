@@ -270,7 +270,7 @@ pSnd = do
 
 -- TODO: Replacing `angleBracket` with `parens` breaks function application.
 pTuple :: Parser Term
-pTuple = angleBracket $ pTerm `sepBy1` symbol "," >>= pure . Tuple
+pTuple = parens $ pTerm `sepBy1` symbol "," >>= pure . Tuple
 
 pGet :: Parser Term
 pGet = do
@@ -279,6 +279,18 @@ pGet = do
   dot
   t2 <- pTerm
   pure $ Get t1 t2
+
+pRecord :: Parser Term
+pRecord = bracket $ do
+  ts <- pClause `sepBy1` symbol ","
+  pure $ Record ts
+  where
+    pClause :: Parser (Varname, Term)
+    pClause = do
+      v1 <- identifier
+      rword "="
+      --t1 <- pTerm
+      pure (v1, Tru)
 
 updateEnv :: Varname -> Bindings -> Bindings
 updateEnv var env = var : env
@@ -294,10 +306,10 @@ pAbs = do
   pure (Abs var ty term)
 
 pValues :: Parser Term
-pValues = pTuple <|> pPair <|> pUnit <|> pBool <|> pNat <|> pPeano <|> pVar
+pValues = pTuple <|> pRecord <|> pUnit <|> pBool <|> pNat <|> pPeano <|> pVar
 
 pStmts :: Parser Term
-pStmts = pGet <|> pCase <|> pAbs <|> pLet <|> pAs <|> pFst <|> pSnd
+pStmts = pGet <|> pCase <|> pAbs <|> try pLet <|> pAs <|> pFst <|> pSnd
 
 -- TODO: Fix parser bug when an extra close paren is present:
 -- > ((\x:Bool.True) True)) True
@@ -309,3 +321,5 @@ pTerm = foldl1 App <$> (  pIf
                       <|> parens pTerm
                        ) `sepBy1` sc
 
+pMain :: Parser Term
+pMain = pTerm <* eof

@@ -54,7 +54,7 @@ typecheck (App t1 t2) = typecheck t1 >>= \case
     if ty2' == ty1
     then pure ty2
     else throwTypeError t1 ty1 ty2'
-  ty -> throwTypeError' $ show t1 ++ " :: " ++ show ty ++ " is not a function"
+  ty -> throwTypeError' $ pretty t1 ++ " :: " ++ show ty ++ " is not a function"
 typecheck Tru = pure BoolT
 typecheck Fls = pure BoolT
 typecheck (If t1 t2 t3) = typecheck t1 >>= \case
@@ -106,6 +106,7 @@ typecheck (Get (Tuple ts) nat) = typecheck nat >>= \case
       else let ti = ts !! i in typecheck ti
     _ -> throwTypeError' "Type Error: Expected type Nat for projection"
 typecheck (Get t1 _) = throwTypeError' $ "Type Error: " ++ pretty t1 ++ " is not a Tuple."
+typecheck (Record ts) = traverse (\(v,t) -> typecheck t) ts >>= pure . RecordT
 
 throwTypeError :: MonadError Err m => Term -> Type -> Type -> m a
 throwTypeError t1 ty1 ty2 = throwError . T . TypeError $
