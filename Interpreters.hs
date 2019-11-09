@@ -27,6 +27,7 @@ depth (Pair t1 t2) = depth t1 + depth t2
 depth (Fst t1) = depth t1
 depth (Snd t1) = depth t1
 depth (Tuple ts) = getSum $ foldMap (Sum . depth . snd) ts
+depth (Record ts) = getSum $ foldMap (Sum . depth . snd) ts
 depth (Get t1 _) = 1 + depth t1
 
 
@@ -63,6 +64,7 @@ shift target t = f 0 t
     f i (Fst t1) = Fst (f i t1)
     f i (Snd t1) = Snd (f i t1)
     f i (Tuple ts) = Tuple $ (fmap . fmap) (f i) ts
+    f i (Record ts) = Record $ (fmap . fmap) (f i) ts
     f i (Get t1 v) = Get (f i t1) v
 
 {-
@@ -99,6 +101,7 @@ subst j s t = f 0 s t
         f c s' (Fst t1) = Fst (f c s' t1)
         f c s' (Snd t1) = Snd (f c s' t1)
         f c s' (Tuple ts) = Tuple $ (fmap . fmap) (f c s' ) ts
+        f c s' (Record ts) = Record $ (fmap . fmap) (f c s' ) ts
         f c s' (Get t1 v) = Get (f c s' t1) v
 
 substTop :: Term -> Term -> Term
