@@ -13,6 +13,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import TypedLambdaCalcInitial.Types
 
 {-
+TODO: Figure out how to represent parsing `INTEGER` into peano numbers.
 BNF Grammer:
 
 ALPHA = "A".."Z" | "a".."z";
@@ -21,7 +22,6 @@ INTEGER = DIGIT {DIGIT};
 
 VAR = ALPHA {ALPHA | INTEGER};
 BOOL = "True" | "False";
-NAT = INTEGER;
 S = "S" TERM;
 Z = "Z" | "0";
 APP = TERM TERM;
@@ -34,9 +34,10 @@ SND = "snd" TERM;
 TUPLE = "(" TERM { "," TERM } ")";
 PROJ = TERM ".";
 RECORD = "{" VAR "=" TERM { "," VAR "=" TERM } "}";
+GROUP = "(" TERM ")";
 
 TYPE = "Unit" | "Bool" | "Nat" | TYPE "->" "TYPE" | TYPE "x" TYPE | "(" TYPE { "," TYPE } ")" | "{" TYPE { "," TYPE } "}";
-TERM = VAR | S | Z | NAT | BOOL | APP | ABS | CASE | IF | PAIR | FST | SND | TUPLE | PROJ | RECORD;
+TERM = GROUP | VAR | S | Z | NAT | BOOL | APP | ABS | CASE | IF | PAIR | FST | SND | TUPLE | PROJ | RECORD;
 
 -}
 
@@ -180,6 +181,7 @@ parseType = try pArrow <|> pPairT <|> pBoolT <|> pNatT
 
 -- | Terms:
 
+-- TODO: Figure out how to adjust `pTerm` to allow for `rword "()"`
 pUnit :: Parser Term
 pUnit = rword "Unit" *> pure Unit
 
@@ -210,8 +212,7 @@ pIf = do
   pure $ If t1 t2 t3
 
 pPeano :: Parser Term
-pPeano =
-  rword "S" *> (S <$> pTerm) <|> (rword "Z" *> pure Z)
+pPeano = rword "S" *> (S <$> pTerm) <|> (rword "Z" *> pure Z)
 
 pNat :: Parser Term
 pNat = do
@@ -219,14 +220,14 @@ pNat = do
    pure . foldr (\a b -> a b) Z $ replicate digits S
 
 pPair :: Parser Term
-pPair = bracket $ do
+pPair = angleBracket $ do
   t1 <- pTerm
   void $ symbol ","
   t2 <- pTerm
   pure $ Pair t1 t2
 
 pAs :: Parser Term
-pAs = try . parens $ do
+pAs = parens $ do
   t1 <- pTerm
   rword "as"
   ty <- parseType
@@ -268,9 +269,12 @@ pSnd = do
   t <- pTerm
   pure $ Snd t
 
--- TODO: Replacing `angleBracket` with `parens` breaks function application.
 pTuple :: Parser Term
-pTuple = parens $ pTerm `sepBy1` symbol "," >>= pure . Tuple
+pTuple = parens $ do
+  ts <- pTerm `sepBy1` symbol ","
+  if length ts == 1
+  then pure $ head ts
+  else pure $ Tuple ts
 
 pGet :: Parser Term
 pGet = do
@@ -306,18 +310,18 @@ pAbs = do
   pure (Abs var ty term)
 
 pValues :: Parser Term
-pValues = pTuple <|> pRecord <|> pUnit <|> pBool <|> pNat <|> pPeano <|> pVar
+pValues = pTuple <|> pRecord <|> pPair <|> pUnit <|> pBool <|> pNat <|> pPeano <|> pVar
 
 pStmts :: Parser Term
-pStmts = pGet <|> pCase <|> pAbs <|> try pLet <|> pAs <|> pFst <|> pSnd
+pStmts = pGet <|> pCase <|> pAbs <|> pLet <|> pAs <|> pFst <|> pSnd
 
 -- TODO: Fix parser bug when an extra close paren is present:
 -- > ((\x:Bool.True) True)) True
 -- True
 pTerm :: Parser Term
 pTerm = foldl1 App <$> (  pIf
-                      <|> pStmts
-                      <|> pValues
+                      <|> try pStmts
+                      <|> try pValues
                       <|> parens pTerm
                        ) `sepBy1` sc
 
