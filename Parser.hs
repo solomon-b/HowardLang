@@ -15,49 +15,28 @@ import TypedLambdaCalcInitial.Types
 {-
 BNF Grammer:
 
-TERM = LIT | GROUP | S | APP | ABS | CASE | IF | PAIR | FST | SND | TUPLE | PROJ | RECORD
-GROUP = "(" TERM ")"
-VAR = <Alphanumeric String>
-DIGIT = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
-INTEGER = DIGIT | INTEGER DIGIT
-LIT = INTEGER | "Z" | "True" | "False" | "Unit"
+ALPHA = "A".."Z" | "a".."z";
+DIGIT = "0".."9";
+INTEGER = DIGIT {DIGIT};
 
-S      = "S" EXPR
-APP    = TERM TERM
-ABS    = ("\" | "λ") VAR ":" TYPE "." TERM
-CASE   = "case" TERM "of" "Z" "=>" TERM "|" "(S" VAR ")" "=>" TERM
-IF     = "if: " TERM "then:" TERM "else:" TERM
-PAIR   = "{" TERM "," TERM "}"
-FST    = "fst" TERM
-SND    = "snd" TERM
-TUPLE  = "("TERM "," TERM "," ... ")"
-PROJ   = TERM.TERM
-RECORD = "{" VAR "=" TERM, ... "}"
+VAR = ALPHA {ALPHA | INTEGER};
+BOOL = "True" | "False";
+NAT = INTEGER;
+S = "S" TERM;
+Z = "Z" | "0";
+APP = TERM TERM;
+ABS = ("\\" | "λ") VAR ":" TYPE "." TERM;
+CASE = "case" TERM "of" "Z" "=>" TERM "|" "(S" VAR ")" "=>" TERM;
+IF = "if:" TERM "then:" TERM "else:" TERM;
+PAIR = "<" TERM "," TERM ">";
+FST = "fst" TERM;
+SND = "snd" TERM;
+TUPLE = "(" TERM { "," TERM } ")";
+PROJ = TERM ".";
+RECORD = "{" VAR "=" TERM { "," VAR "=" TERM } "}";
 
-
-TYPE = "Unit" | "Bool" | "Nat" | TYPE "->" TYPE | TYPE "X" TYPE | "(" TYPE "," TYPE ... ")"
-
-
-
-var = <String>
-
-term = <var>
-     | ("\" | "λ") <var> ":" <type> "." <term>
-     | <term> <term>
-     | "S" <term>
-     | "Z"
-     | "True"
-     | "False"
-     | "Unit"
-     | "case" <term> "of" "Z" "=>" <term> "|" "(S" <var>")" "=>" <term>
-     | "if: " <term> "then:" <term> "else:" <term>
-     | "{"term, term "}"
-     | "fst" <term>
-     | "snd" <term>
-     | "("<term>, <term> ... ")"
-     | <term>.<term>
-
-type ::= "Unit" | "Bool" | "Nat" | <type> "->" <type> | <type> "X" <type> | "<" <term> "," <term> ... ">"
+TYPE = "Unit" | "Bool" | "Nat" | TYPE "->" "TYPE" | TYPE "x" TYPE | "(" TYPE { "," TYPE } ")" | "{" TYPE { "," TYPE } "}";
+TERM = VAR | S | Z | NAT | BOOL | APP | ABS | CASE | IF | PAIR | FST | SND | TUPLE | PROJ | RECORD;
 
 -}
 
