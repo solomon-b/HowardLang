@@ -75,7 +75,7 @@ instance Show Type where
   show (FuncT t1 f2@(FuncT _ _)) = show t1 ++ " -> " ++ "(" ++ show f2 ++ ")"
   show (FuncT t1 t2) = show t1 ++ " -> " ++ show t2
   show (PairT t1 t2) = show t1 ++ " X " ++ show t2
-  show (TupleT ts) = "<" ++ intersperse ',' (unwords (show <$> ts)) ++ ">"
+  show (TupleT ts) = let tys = foldl1 (\b a -> a ++ ", " ++ b) $ show <$> ts in "<" ++ tys ++ ">"
 
 {-
 instance Pretty Type where
