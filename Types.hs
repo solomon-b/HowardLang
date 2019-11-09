@@ -4,7 +4,6 @@ module TypedLambdaCalcInitial.Types where
 import Control.Exception (Exception)
 
 import Data.Data
-import Data.List
 --import qualified Data.Text as T
 --import Data.Text.Prettyprint.Doc
 
@@ -32,7 +31,7 @@ data Term
   | Fst Term
   | Snd Term
   | Tuple [Term]
-  | Get Term Term
+  | Get Term Term -- Get Tuple Nat
   deriving (Show, Eq)
 
 
@@ -103,3 +102,27 @@ data TypeErr = TypeError String deriving (Show, Eq)
 data Err = P ParseErr | T TypeErr deriving (Show, Eq)
 
 instance Exception Err
+
+
+--------------------
+--- Misc Helpers ---
+--------------------
+
+
+-- Other then Application, what should not be a value?
+isVal :: Context -> Term -> Bool
+isVal _ (Abs _ _ _) = True
+isVal _ Tru         = True
+isVal _ Fls         = True
+isVal _ Z           = True
+isVal _ Unit        = True
+isVal c (S n)       = isVal c n
+isVal c (As t1 _)   = isVal c t1
+isVal c (Pair t1 t2) = isVal c t1 && isVal c t2
+isVal c (Tuple ts)  = all (isVal c) ts
+isVal _ _           = False
+
+isNat :: Term -> Bool
+isNat Z = True
+isNat (S n) = isNat n
+isNat _ = False

@@ -100,17 +100,19 @@ typecheck (Tuple ts) = traverse typecheck ts >>= pure . TupleT
 typecheck (Get (Tuple ts) nat) = typecheck nat >>= \case
     NatT -> do
       i <- natToInt nat
-      let ti = ts !! i
-      typecheck ti
+      let len = length ts
+      if i >= len
+      then throwTypeError' "Type Error: Index out of range"
+      else let ti = ts !! i in typecheck ti
     _ -> throwTypeError' "Type Error: Expected type Nat for projection"
-typecheck (Get ty _) = throwTypeError' $ "Type Error: " ++ show ty ++ " is not a Tuple."
+typecheck (Get t1 _) = throwTypeError' $ "Type Error: " ++ pretty t1 ++ " is not a Tuple."
 
 throwTypeError :: MonadError Err m => Term -> Type -> Type -> m a
 throwTypeError t1 ty1 ty2 = throwError . T . TypeError $
   "Type Error:\n\r" ++
   "Expected Type: " ++ show ty2 ++ "\n\r" ++
   "Actual Type: "   ++ show ty1 ++ "\n\r" ++
-  "For Term: "      ++ show t1 -- pretty t1
+  "For Term: "      ++ pretty t1
 
 throwTypeError' :: MonadError Err m => String -> m a
 throwTypeError' = throwError . T . TypeError

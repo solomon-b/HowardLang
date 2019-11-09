@@ -126,6 +126,8 @@ rws = [ "if"
       , "="
       , "fst"
       , "snd"
+      , "get"
+      , ","
       ]
 
 identifier :: Parser String
@@ -267,6 +269,14 @@ pSnd = do
 pTuple :: Parser Term
 pTuple = angleBracket $ pTerm `sepBy` symbol "," >>= pure . Tuple
 
+pGet :: Parser Term
+pGet = do
+  rword "get"
+  t1 <- pTerm
+  dot
+  t2 <- pTerm
+  pure $ Get t1 t2
+
 updateEnv :: Varname -> Bindings -> Bindings
 updateEnv var env = var : env
 
@@ -284,7 +294,7 @@ pValues :: Parser Term
 pValues = pTuple <|> pPair <|> pUnit <|> pBool <|> pNat <|> pPeano <|> pVar
 
 pStmts :: Parser Term
-pStmts = pCase <|> pAbs <|> pLet <|> pAs <|> pFst <|> pSnd
+pStmts = pGet <|> pCase <|> pAbs <|> pLet <|> pAs <|> pFst <|> pSnd
 
 -- TODO: Fix parser bug when an extra close paren is present:
 -- > ((\x:Bool.True) True)) True

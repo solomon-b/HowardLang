@@ -104,19 +104,6 @@ subst j s t = f 0 s t
 substTop :: Term -> Term -> Term
 substTop s t = shift (-1) (subst 0 (shift 1 s) t)
 
--- Other then Application, what should not be a value?
-isVal :: Context -> Term -> Bool
-isVal _ (Abs _ _ _) = True
-isVal _ Tru         = True
-isVal _ Fls         = True
-isVal _ Z           = True
-isVal _ Unit        = True
-isVal c (S n)       = isVal c n
-isVal c (As t1 _)   = isVal c t1
-isVal c (Pair t1 t2) = isVal c t1 && isVal c t2
-isVal c (Tuple ts)  = all (isVal c) ts
-isVal _ _           = False
-
 --TODO: Reimplement with `Data Term' a = Reduced a | Unreduced a`
 -- Single Step Evaluation Function
 singleEval :: Context -> Term -> Maybe Term
@@ -146,6 +133,9 @@ singleEval ctx t =
           evalElem (x:xs) | isVal ctx x = let xs' = evalElem xs in ((:) x) <$> xs'
           evalElem (x:xs) = let x' = singleEval ctx x in liftA2 (:) x' (pure xs)
       Tuple <$> evalElem ts
+    (Get t1 n) | not (isNat n) -> singleEval ctx n >>= \n' -> pure (Get t1 n')
+    (Get (Tuple ts) Z) -> pure $ head ts
+    (Get (Tuple ts) (S n)) -> singleEval ctx (Get (Tuple (tail ts)) n)
     _ -> Nothing
 
 -- Multistep Evaluation Function
