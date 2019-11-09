@@ -30,8 +30,8 @@ term = <var>
      | "{"term, term "}"
      | "fst" <term>
      | "snd" <term>
-     | "<" <term>, <term> ... ">"
-     | "get" term term
+     | "("<term>, <term> ... ")"
+     | <term>.<term>
 
 type ::= "Unit" | "Bool" | "Nat" | <type> "->" <type> | <type> "X" <type> | "<" <term> "," <term> ... ">"
 
@@ -265,9 +265,9 @@ pSnd = do
   t <- pTerm
   pure $ Snd t
 
--- TODO: Make this work for empty tuples
+-- TODO: Replacing `angleBracket` with `parens` breaks function application.
 pTuple :: Parser Term
-pTuple = angleBracket $ pTerm `sepBy` symbol "," >>= pure . Tuple
+pTuple = angleBracket $ pTerm `sepBy1` symbol "," >>= pure . Tuple
 
 pGet :: Parser Term
 pGet = do
