@@ -32,12 +32,12 @@ PAIR = "<" TERM "," TERM ">";
 FST = "fst" TERM;
 SND = "snd" TERM;
 TUPLE = "(" TERM { "," TERM } ")";
-PROJ = TERM ".";
+PROJ = "get" TERM "[" VAR "]";
 RECORD = "{" VAR "=" TERM { "," VAR "=" TERM } "}";
 GROUP = "(" TERM ")";
 
 TYPE = "Unit" | "Bool" | "Nat" | TYPE "->" "TYPE" | TYPE "x" TYPE | "(" TYPE { "," TYPE } ")" | "{" TYPE { "," TYPE } "}";
-TERM = GROUP | VAR | S | Z | NAT | BOOL | APP | ABS | CASE | IF | PAIR | FST | SND | TUPLE | PROJ | RECORD;
+TERM = GROUP | VAR | S | Z | BOOL | APP | ABS | CASE | IF | PAIR | FST | SND | TUPLE | PROJ | RECORD;
 
 -}
 
@@ -72,6 +72,9 @@ lexeme = L.lexeme sc
 
 symbol :: String -> Parser String
 symbol = L.symbol sc
+
+quoted :: Parser a -> Parser a
+quoted = between (symbol "\"") (symbol "\"")
 
 parens :: Parser a -> Parser a
 parens = between (symbol "(") (symbol ")")
@@ -225,6 +228,11 @@ pNat = do
    digits <- fromIntegral <$> integer
    pure . foldr (\a b -> a b) Z $ replicate digits S
 
+pString :: Parser String
+pString = do
+  void $ symbol "\""
+  manyTill asciiChar (char '\"')
+
 pPair :: Parser Term
 pPair = angleBracket $ do
   t1 <- pTerm
@@ -284,14 +292,6 @@ pTuple = parens $ do
   where
     nats = show <$> ([1..] :: [Int])
 
--- TODO: Figure out how to prevent infinite recursion if I remove the reserved word.
-pGet :: Parser Term
-pGet = do
-  rword "get"
-  t1 <- pTerm
-  t2 <- squareBracket identifier
-  pure $ Get t1 t2
-
 pRecord :: Parser Term
 pRecord = bracket $ do
   ts <- pClause `sepBy1` symbol ","
@@ -303,6 +303,14 @@ pRecord = bracket $ do
       equal
       t1 <- pTerm
       pure (v1, t1)
+
+-- TODO: Figure out how to prevent infinite recursion if I remove the reserved word.
+pGet :: Parser Term
+pGet = do
+  rword "get"
+  t1 <- pTerm
+  t2 <- squareBracket identifier
+  pure $ Get t1 t2
 
 updateEnv :: Varname -> Bindings -> Bindings
 updateEnv var env = var : env
