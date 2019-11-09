@@ -13,7 +13,6 @@ type Varname = String
 type DeBruijn = Int
 type ContextLength = Int
 
-
 data Term
   = Var DeBruijn
   | Abs Varname Type Term
@@ -30,8 +29,8 @@ data Term
   | Pair Term Term
   | Fst Term
   | Snd Term
-  | Tuple [Term]
-  | Get Term Term -- Get Tuple Nat
+  | Tuple [(Varname, Term)]
+  | Get Term Varname -- Get Tuple Nat
   | Record [(Varname, Term)]
   deriving (Show, Eq)
 
@@ -128,7 +127,7 @@ isVal _ Unit        = True
 isVal c (S n)       = isVal c n
 isVal c (As t1 _)   = isVal c t1
 isVal c (Pair t1 t2) = isVal c t1 && isVal c t2
-isVal c (Tuple ts)  = all (isVal c) ts
+isVal c (Tuple ts)  = all (isVal c . snd) ts
 isVal _ _           = False
 
 isNat :: Term -> Bool

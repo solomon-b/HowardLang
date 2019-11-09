@@ -5,7 +5,6 @@ import Control.Monad.Identity
 import Control.Monad.Reader
 
 import Data.List
-import Data.Traversable
 
 import TypedLambdaCalcInitial.Types
 import TypedLambdaCalcInitial.PrettyPrinter
@@ -96,17 +95,20 @@ typecheck (Snd (Pair _ t2)) = typecheck t2
 typecheck (Snd t) = typecheck t >>= \case
   (PairT _ ty2) -> pure ty2
   ty -> throwTypeError' $ "Expected a Pair but got: " ++ show ty
-typecheck (Tuple ts) = traverse typecheck ts >>= pure . TupleT
-typecheck (Get (Tuple ts) nat) = typecheck nat >>= \case
-    NatT -> do
-      i <- natToInt nat
-      let len = length ts
-      if i >= len
-      then throwTypeError' "Type Error: Index out of range"
-      else let ti = ts !! i in typecheck ti
-    _ -> throwTypeError' "Type Error: Expected type Nat for projection"
-typecheck (Get t1 _) = throwTypeError' $ "Type Error: " ++ pretty t1 ++ " is not a Tuple."
-typecheck (Record ts) = traverse (\(v,t) -> typecheck t) ts >>= pure . RecordT
+typecheck (Tuple ts) = traverse (typecheck . snd) ts >>= pure . TupleT
+typecheck (Get (Tuple ts) v) =
+  case lookup v ts of
+    Just t -> typecheck t
+    Nothing -> throwTypeError' "Type Error: Projection failed"
+-- TODO: Figure out how to recover these more helpful errors:
+-- "Type Error: Index out of range"
+-- "Type Error: Expected type Nat for projection"
+typecheck (Get (Record ts) v) =
+  case lookup v ts of
+    Just t -> typecheck t
+    Nothing -> throwTypeError' $ "Type Error: No such field " ++ v ++ " in record"
+typecheck (Get t1 _) = throwTypeError' $ "Type Error: " ++ pretty t1 ++ " is not a Tuple or Record."
+typecheck (Record ts) = traverse (\(_,t) -> typecheck t) ts >>= pure . RecordT
 
 throwTypeError :: MonadError Err m => Term -> Type -> Type -> m a
 throwTypeError t1 ty1 ty2 = throwError . T . TypeError $

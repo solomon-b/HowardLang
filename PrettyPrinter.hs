@@ -83,12 +83,11 @@ pretty t = runReader (f t) []
     f (Fst t1) = (++ "fst ") <$> f t1
     f (Snd t1) = (++ "snd ") <$> f t1
     f (Tuple ts) = do
-      ts' <- traverse f ts
+      ts' <- traverse (f . snd) ts
       pure $ "(" ++ unwords (intersperse "," ts') ++ ")"
-    f (Get n t1) = do
-      n' <- f n
+    f (Get t1 v) = do
       t1' <- f t1
-      pure $ "Get " ++ show n' ++ " from " ++ show t1'
+      pure $ "Get " ++ v ++ " from " ++ show t1'
     f (Record ts) = do
       ts' <- traverse (\(v1,t1) -> ((++) (v1 ++ "=")) <$> f t1) ts
       pure $ "{" ++ unwords (intersperse "," ts') ++ "}"

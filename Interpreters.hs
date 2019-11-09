@@ -26,8 +26,8 @@ depth (Let _ t1 t2) = 1 + depth t1 + depth t2
 depth (Pair t1 t2) = depth t1 + depth t2
 depth (Fst t1) = depth t1
 depth (Snd t1) = depth t1
-depth (Tuple ts) = getSum $ foldMap (Sum . depth) ts
-depth (Get t1 t2) = depth t1 + depth t2
+depth (Tuple ts) = getSum $ foldMap (Sum . depth . snd) ts
+depth (Get t1 _) = 1 + depth t1
 
 
 ------------
@@ -62,8 +62,8 @@ shift target t = f 0 t
     f i (Pair t1 t2) = Pair (f i t1) (f i t2)
     f i (Fst t1) = Fst (f i t1)
     f i (Snd t1) = Snd (f i t1)
-    f i (Tuple ts) = Tuple (f i <$> ts)
-    f i (Get t1 t2) = Get (f i t1) (f i t2)
+    f i (Tuple ts) = Tuple $ (fmap . fmap) (f i) ts
+    f i (Get t1 v) = Get (f i t1) v
 
 {-
 Substitution Rules:
@@ -98,8 +98,8 @@ subst j s t = f 0 s t
         f c s' (Pair t1 t2) = Pair (f c s' t1) (f c s' t2)
         f c s' (Fst t1) = Fst (f c s' t1)
         f c s' (Snd t1) = Snd (f c s' t1)
-        f c s' (Tuple ts) = Tuple (f c s' <$> ts)
-        f c s' (Get t1 t2) = Get (f c s' t1) (f c s' t2)
+        f c s' (Tuple ts) = Tuple $ (fmap . fmap) (f c s' ) ts
+        f c s' (Get t1 v) = Get (f c s' t1) v
 
 substTop :: Term -> Term -> Term
 substTop s t = shift (-1) (subst 0 (shift 1 s) t)
@@ -130,12 +130,17 @@ singleEval ctx t =
     (Pair t1 t2)                          -> singleEval ctx t2 >>= \v2 -> pure $ Pair t1 v2
     (Tuple ts) ->  do
       let evalElem [] = Nothing
-          evalElem (x:xs) | isVal ctx x = let xs' = evalElem xs in ((:) x) <$> xs'
-          evalElem (x:xs) = let x' = singleEval ctx x in liftA2 (:) x' (pure xs)
+          evalElem ((v, t1):ts') | isVal ctx t1 = let ts'' = evalElem ts' in ((:) (v, t1)) <$> ts''
+          evalElem ((v, t1):ts') = let t1' = (,) v <$> (singleEval ctx t1) in liftA2 (:) t1' (pure ts')
       Tuple <$> evalElem ts
-    (Get t1 n) | not (isNat n) -> singleEval ctx n >>= \n' -> pure (Get t1 n')
-    (Get (Tuple ts) Z) -> pure $ head ts
-    (Get (Tuple ts) (S n)) -> singleEval ctx (Get (Tuple (tail ts)) n)
+    (Record ts) -> do
+      let evalElem [] = Nothing
+          evalElem ((v, t1):ts') | isVal ctx t1 = let ts'' = evalElem ts' in ((:) (v, t1)) <$> ts''
+          evalElem ((v, t1):ts') = let t1' = (,) v <$> (singleEval ctx t1) in liftA2 (:) t1' (pure ts')
+      Record <$> evalElem ts
+    (Get (Tuple ts) var) -> lookup var ts
+    (Get (Record ts) var) -> lookup var ts
+    (Get t1 var) | not $ isVal ctx t1 -> singleEval ctx t1 >>= \t1' -> pure (Get t1' var)
     _ -> Nothing
 
 -- Multistep Evaluation Function
@@ -168,7 +173,7 @@ bigStepEval ctx (Fst t1) = bigStepEval ctx t1
 bigStepEval _ (Snd (Pair _ t2)) = t2
 bigStepEval ctx (Snd t1) = bigStepEval ctx t1
 bigStepEval ctx (Pair t1 t2) = Pair (bigStepEval ctx t1) (bigStepEval ctx t2)
-bigStepEval ctx (Tuple ts) = Tuple $ bigStepEval ctx <$> ts
+bigStepEval ctx (Tuple ts) = Tuple $ ts >>= \(v,t) -> pure (v, bigStepEval ctx t)
 bigStepEval _ Unit = Unit
 bigStepEval _ Tru = Tru
 bigStepEval _ Fls = Fls

@@ -79,6 +79,9 @@ parens = between (symbol "(") (symbol ")")
 bracket :: Parser a -> Parser a
 bracket = between (symbol "{") (symbol "}")
 
+squareBracket :: Parser a -> Parser a
+squareBracket = between (symbol "[") (symbol "]")
+
 angleBracket :: Parser a -> Parser a
 angleBracket = between (symbol "<") (symbol ">")
 
@@ -274,17 +277,19 @@ pSnd = do
 
 pTuple :: Parser Term
 pTuple = parens $ do
-  ts <- pTerm `sepBy1` symbol ","
+  ts <- zip nats <$> pTerm `sepBy1` symbol ","
   if length ts == 1
-  then pure $ head ts
+  then pure $ snd $ head ts
   else pure $ Tuple ts
+  where
+    nats = show <$> ([1..] :: [Int])
 
+-- TODO: Figure out how to prevent infinite recursion if I remove the reserved word.
 pGet :: Parser Term
 pGet = do
   rword "get"
   t1 <- pTerm
-  dot
-  t2 <- pTerm
+  t2 <- squareBracket identifier
   pure $ Get t1 t2
 
 pRecord :: Parser Term
