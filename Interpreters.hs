@@ -174,6 +174,7 @@ bigStepEval _ (Snd (Pair _ t2)) = t2
 bigStepEval ctx (Snd t1) = bigStepEval ctx t1
 bigStepEval ctx (Pair t1 t2) = Pair (bigStepEval ctx t1) (bigStepEval ctx t2)
 bigStepEval ctx (Tuple ts) = Tuple $ ts >>= \(v,t) -> pure (v, bigStepEval ctx t)
+bigStepEval ctx (Record ts) = Tuple $ ts >>= \(v,t) -> pure (v, bigStepEval ctx t)
 bigStepEval _ Unit = Unit
 bigStepEval _ Tru = Tru
 bigStepEval _ Fls = Fls
