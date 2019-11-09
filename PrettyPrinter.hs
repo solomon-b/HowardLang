@@ -90,5 +90,5 @@ pretty t = runReader (f t) []
       t1' <- f t1
       pure $ "Get " ++ show n' ++ " from " ++ show t1'
     f (Record ts) = do
-      ts' <- traverse (\(v1,t1) -> (++ (v1 ++ "=")) <$> f t1) ts
+      ts' <- traverse (\(v1,t1) -> ((++) (v1 ++ "=")) <$> f t1) ts
       pure $ "{" ++ unwords (intersperse "," ts') ++ "}"

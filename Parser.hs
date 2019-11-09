@@ -109,6 +109,9 @@ pipe = void $ symbol "|"
 lambda :: Parser ()
 lambda = void $ symbol "λ" <|> symbol "\\"
 
+equal :: Parser ()
+equal = void $ symbol "="
+
 rword :: String -> Parser ()
 rword w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
 
@@ -292,9 +295,9 @@ pRecord = bracket $ do
     pClause :: Parser (Varname, Term)
     pClause = do
       v1 <- identifier
-      rword "="
-      --t1 <- pTerm
-      pure (v1, Tru)
+      equal
+      t1 <- pTerm
+      pure (v1, t1)
 
 updateEnv :: Varname -> Bindings -> Bindings
 updateEnv var env = var : env
