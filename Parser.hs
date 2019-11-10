@@ -62,6 +62,9 @@ runParse = handleParseErr . runIdentity . flip runReaderT [] . runParserT pMain 
 updateEnv :: Varname -> Bindings -> Bindings
 updateEnv var env = var : env
 
+bindLocalVar :: Varname -> Parser a -> Parser a
+bindLocalVar var env = local (updateEnv var) env
+
 -- Used for debugging combinators:
 run :: Parser a -> String -> Either ParseErr a
 run p = runIdentity . flip runReaderT [] . runParserT p mempty
@@ -285,7 +288,7 @@ pAbs = do
   colon
   ty <- parseType
   dot
-  term <- local (updateEnv var) pTerm
+  term <- bindLocalVar var pTerm
   pure (Abs var ty term)
 
 -- | Statements
@@ -321,7 +324,7 @@ pLet = do
   rword "="
   t1 <- pTerm
   rword "in"
-  t2 <- local (updateEnv var) pTerm
+  t2 <- bindLocalVar var pTerm
   pure $ Let var t1 t2
 
 pFst :: Parser Term
@@ -344,7 +347,18 @@ pInR :: Parser Term
 pInR = undefined
 
 pSumCase :: Parser Term
-pSumCase = undefined
+pSumCase = do
+  rword "sumCase"
+  t1 <- pTerm
+  rword "of"
+  vL <- parensOpt $ rword "inl" *> identifier
+  phatArrow
+  pipe
+  vR <- parensOpt $ rword "inr" *> identifier
+  phatArrow
+  tL <- bindLocalVar vL pTerm
+  tR <- bindLocalVar vR pTerm
+  pure $ SumCase t1 tL vL tR vR
 
 -- TODO: Rewrite Case parser to work with sums and nats
 pCase :: Parser Term
@@ -358,7 +372,7 @@ pCase = do
   pipe
   var <- parensOpt $ rword "S" *> identifier
   phatArrow
-  s <- local (updateEnv var) pTerm
+  s <- bindLocalVar var pTerm
   pure $ Case n z var s
 
 

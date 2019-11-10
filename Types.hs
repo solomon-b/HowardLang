@@ -32,6 +32,9 @@ data Term
   | Tuple [(Varname, Term)]
   | Get Term Varname -- Get Tuple Nat
   | Record [(Varname, Term)]
+  | InL Term
+  | InR Term
+  | SumCase Term Term Varname Term Varname
   deriving (Show, Eq)
 
 
@@ -69,6 +72,7 @@ data Type
   | PairT Type Type
   | TupleT [Type]
   | RecordT [Type]
+  | SumT Type Type
   deriving Eq
 
 instance Show Type where
@@ -83,6 +87,7 @@ instance Show Type where
   show (PairT t1 t2) = "<" ++ show t1 ++ ", " ++ show t2 ++ ">"
   show (TupleT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ show <$> ts in "(" ++ tys ++ ")"
   show (RecordT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ show <$> ts in "{" ++ tys ++ "}"
+  show (SumT left right) = "Left " ++ show left ++ " | " ++ "Right " ++ show right
 
 {-
 instance Pretty Type where
@@ -128,6 +133,9 @@ isVal c (S n)       = isVal c n
 isVal c (As t1 _)   = isVal c t1
 isVal c (Pair t1 t2) = isVal c t1 && isVal c t2
 isVal c (Tuple ts)  = all (isVal c . snd) ts
+isVal c (InL t)     = isVal c t
+isVal c (InR t)     = isVal c t
+-- TODO: Should Lets and Cases be considered values if their terms are fully reduced? I think so?
 isVal _ _           = False
 
 isNat :: Term -> Bool

@@ -41,11 +41,14 @@ natToInt Z = pure 0
 natToInt (S t) = (+1) <$> natToInt t
 natToInt _ = throwTypeError' $ "Type Error: Excepted Nat"
 
+bindLocalVar :: (MonadReader Context m, MonadError Err m) => Varname -> Type -> Term -> m Type
+bindLocalVar var typ term = local ((:) (var, typ)) (typecheck term)
+
 typecheck ::
   (MonadError Err m , MonadReader Context m) => Term -> m Type
 typecheck (Var i) = asks (flip getBinding i)
 typecheck (Abs var ty t2) = do
-  ty2 <- local ((:) (var, ty)) (typecheck t2)
+  ty2 <- bindLocalVar var ty t2
   pure $ FuncT ty ty2
 typecheck (App t1 t2) = typecheck t1 >>= \case
   FuncT ty1 ty2 -> do
@@ -71,7 +74,7 @@ typecheck (S t) = typecheck t >>= \case
 typecheck (Case n z v s) = typecheck n >>= \case
   NatT -> do
     zTy <- typecheck z
-    sTy <- local ((:) (v, NatT)) (typecheck s)
+    sTy <- bindLocalVar v NatT s
     if zTy == sTy
       then pure sTy
       else throwTypeError z zTy sTy
@@ -82,7 +85,7 @@ typecheck (As t1 ty) =
     if ty1' == ty
        then pure ty
        else throwTypeError t1 ty1' ty
-typecheck (Let v t1 t2) = typecheck t1 >>= \ty1 -> local ((:) (v, ty1)) (typecheck t2)
+typecheck (Let v t1 t2) = typecheck t1 >>= \ty1 -> bindLocalVar v ty1 t2
 typecheck (Pair t1 t2) = do
   ty1 <- typecheck t1
   ty2 <- typecheck t2
@@ -109,6 +112,13 @@ typecheck (Get (Record ts) v) =
     Nothing -> throwTypeError' $ "Type Error: No such field " ++ v ++ " in record"
 typecheck (Get t1 _) = throwTypeError' $ "Type Error: " ++ pretty t1 ++ " is not a Tuple or Record."
 typecheck (Record ts) = traverse (\(_,t) -> typecheck t) ts >>= pure . RecordT
+typecheck (InL t1) = flip SumT undefined <$> typecheck t1 -- TODO: How do you determine the type of the other half of the union???
+typecheck (InR t1) = SumT undefined <$> typecheck t1      -- TODO: How do you determine the type of the other half of the union???
+typecheck (SumCase t tL vL tR vR) =
+  case t of
+    (InL t1) -> typecheck t1 >>= \ty1 -> bindLocalVar vL ty1 tL
+    (InR t1) -> typecheck t1 >>= \ty1 -> bindLocalVar vR ty1 tR
+    t1 -> do (show <$> typecheck t1) >>= \ty -> throwTypeError' $ "Expected a Sum Type but got: " ++ ty
 
 throwTypeError :: MonadError Err m => Term -> Type -> Type -> m a
 throwTypeError t1 ty1 ty2 = throwError . T . TypeError $

@@ -66,8 +66,12 @@ shift target t = f 0 t
     f i (Tuple ts) = Tuple $ (fmap . fmap) (f i) ts
     f i (Record ts) = Record $ (fmap . fmap) (f i) ts
     f i (Get t1 v) = Get (f i t1) v
+    f i (InL t1) = InL (f i t1)
+    f i (InR t1) = InR (f i t1)
+    f i (SumCase t1 tL vL tR vR) = SumCase (f i t1) (f (i + 1) tL) vL (f (i + 1) tR) vR
 
 {-
+TODO: Update Substition Rules for all new terms
 Substitution Rules:
 1. [j -> s]k       = if j == k then s else k
 2. [j -> s](\.t1)  = \.[j+1 -> ↑¹(s)]t1
@@ -91,10 +95,11 @@ subst j s t = f 0 s t
         f c s' (If t1 t2 t3) = If (f c s' t1) (f c s' t2) (f c s' t3)
         f _ _ Z = Z
         f c s' (S t1) = S (f c s' t1)
-        f c s' (Case l m x n) = Case (f c s' l)
-                                     (f c s' m)
-                                     x
-                                     (f (c+1) (shift c s') n)
+        f c s' (Case l m x n) =
+          Case (f c s' l)
+               (f c s' m)
+               x
+               (f (c+1) (shift c s') n)
         f c s' (As t1 ty) = As (f c s' t1) ty
         f c s' (Let v t1 t2) = Let v (f c s' t1) (f (c+1) (shift c s') t2)
         f c s' (Pair t1 t2) = Pair (f c s' t1) (f c s' t2)
@@ -103,11 +108,20 @@ subst j s t = f 0 s t
         f c s' (Tuple ts) = Tuple $ (fmap . fmap) (f c s' ) ts
         f c s' (Record ts) = Record $ (fmap . fmap) (f c s' ) ts
         f c s' (Get t1 v) = Get (f c s' t1) v
+        f c s' (InL t1) = InL (f c s' t1)
+        f c s' (InR t1) = InR (f c s' t1)
+        f c s' (SumCase t1 tL vL tR vR) =
+          SumCase (f c s' t1)
+                  (f (c + 1) (shift c s') tL)
+                  vL
+                  (f (c + 1) (shift c s') tR)
+                  vR
 
 substTop :: Term -> Term -> Term
 substTop s t = shift (-1) (subst 0 (shift 1 s) t)
 
---TODO: Reimplement with `Data Term' a = Reduced a | Unreduced a`
+-- TODO: Reimplement with `Data Term' a = Reduced a | Unreduced a`
+-- TODO: Be more consistent with `not isVal` vs `isVal`. Will casing on `Term'` make this irrelevent? Yes?
 -- Single Step Evaluation Function
 singleEval :: Context -> Term -> Maybe Term
 singleEval ctx t =
@@ -144,6 +158,14 @@ singleEval ctx t =
     (Get (Tuple ts) var) -> lookup var ts
     (Get (Record ts) var) -> lookup var ts
     (Get t1 var) | not $ isVal ctx t1 -> singleEval ctx t1 >>= \t1' -> pure (Get t1' var)
+    (SumCase t1 tL vL tR vR) | not $ isVal ctx t1 ->
+      singleEval ctx t1 >>= \t1' -> pure (SumCase t1' tL vL tR vR)
+    (SumCase (InL t1) tL _ _ _) -> pure $ substTop t1 tL
+    (SumCase (InR t1) _ _ tR _) -> pure $ substTop t1 tR
+    (InL t1) | isVal ctx t1 -> pure t1
+    (InL t1) -> singleEval ctx t1 >>= pure . InL
+    (InR t1) | isVal ctx t1 -> pure t1
+    (InR t1) -> singleEval ctx t1 >>= pure . InR
     _ -> Nothing
 
 -- Multistep Evaluation Function
@@ -161,12 +183,12 @@ bigStepEval ctx (If t1' t2' t3') =
   case bigStepEval ctx t1' of
     Tru -> bigStepEval ctx t2'
     Fls -> bigStepEval ctx t3'
-    _   -> undefined
+    x   -> error $ show x -- NOTE: Typechecker should make this state impossible
 bigStepEval ctx (Case l m _ n) =
   case bigStepEval ctx l of
     Z -> bigStepEval ctx m
     (S l') -> bigStepEval ctx $ substTop l' n
-    x -> error $ show x
+    x -> error $ show x -- NOTE: Typechecker should make this state impossible
 bigStepEval ctx (As t1 _) = bigStepEval ctx t1
 bigStepEval ctx (Let _ t1 t2) =
   let t1' = bigStepEval ctx t1
@@ -178,6 +200,12 @@ bigStepEval ctx (Snd t1) = bigStepEval ctx t1
 bigStepEval ctx (Pair t1 t2) = Pair (bigStepEval ctx t1) (bigStepEval ctx t2)
 bigStepEval ctx (Tuple ts) = Tuple $ ts >>= \(v,t) -> pure (v, bigStepEval ctx t)
 bigStepEval ctx (Record ts) = Tuple $ ts >>= \(v,t) -> pure (v, bigStepEval ctx t)
+bigStepEval ctx (SumCase t1 tL _ tR _) =
+   let t1' = bigStepEval ctx t1
+   in case t1' of
+     (InL t1'') -> bigStepEval ctx $ substTop t1'' tL
+     (InR t1'') -> bigStepEval ctx $ substTop t1'' tR
+     x -> error $ show x -- NOTE: Typechecker should make this state impossible
 bigStepEval _ Unit = Unit
 bigStepEval _ Tru = Tru
 bigStepEval _ Fls = Fls
