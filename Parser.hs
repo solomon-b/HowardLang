@@ -12,9 +12,11 @@ import qualified Text.Megaparsec.Char.Lexer as L
 
 import TypedLambdaCalcInitial.Types
 
+-----------------------
+----- BNF Grammer -----
+-----------------------
 {-
 TODO: Figure out how to represent parsing `INTEGER` into peano numbers.
-BNF Grammer:
 
 ALPHA = "A".."Z" | "a".."z";
 DIGIT = "0".."9";
@@ -35,17 +37,20 @@ TUPLE = "(" TERM { "," TERM } ")";
 PROJ = "get" TERM "[" VAR "]";
 RECORD = "{" VAR "=" TERM { "," VAR "=" TERM } "}";
 GROUP = "(" TERM ")";
+INR = "inr" TERM;
+INL = "inl" TERM;
+SUMCASE = "sumCase" TERM "of" "(" "inl" VAR ")" "=>" TERM "|" "(" "inr" VAR ")" "=>" TERM;
 
 TYPE = "Unit" | "Bool" | "Nat" | TYPE "->" "TYPE" | TYPE "x" TYPE | "(" TYPE { "," TYPE } ")" | "{" TYPE { "," TYPE } "}";
-TERM = GROUP | VAR | S | Z | BOOL | APP | ABS | CASE | IF | PAIR | FST | SND | TUPLE | PROJ | RECORD;
-
+TERM = GROUP | VAR | S | Z | BOOL | APP | ABS | CASE | IF | PAIR | FST | SND | TUPLE | PROJ | RECORD | INR | INL | SUMCASE;
 -}
 
--- TODO: look into deriving MonadParsec
--- newtype Parser a = Parser { runParser :: ParsecT Void String (Reader Bindings) a }
---   deriving MonadParsec
-type Parser a = ParsecT UnboundError String (Reader Bindings) a
 
+--------------
+---- Main ----
+--------------
+
+type Parser a = ParsecT UnboundError String (Reader Bindings) a
 
 handleParseErr :: Either ParseErr Term -> Either Err Term
 handleParseErr val = either (Left . P) Right val
@@ -53,13 +58,37 @@ handleParseErr val = either (Left . P) Right val
 runParse :: String -> Either Err Term
 runParse = handleParseErr . runIdentity . flip runReaderT [] . runParserT pMain mempty
 
+-- Updates DeBruijn index beindings during bindings
+updateEnv :: Varname -> Bindings -> Bindings
+updateEnv var env = var : env
+
+-- Used for debugging combinators:
 run :: Parser a -> String -> Either ParseErr a
 run p = runIdentity . flip runReaderT [] . runParserT p mempty
 
 
--------------
---- Lexer ---
--------------
+-- | Composed Parser
+
+pValues :: Parser Term
+pValues = pTuple <|> pRecord <|> pPair <|> pUnit <|> pBool <|> pNat <|> pPeano <|> pVar
+
+pStmts :: Parser Term
+pStmts = pGet <|> pCase <|> pAbs <|> pLet <|> pAs <|> pFst <|> pSnd
+
+pTerm :: Parser Term
+pTerm = foldl1 App <$> (  pIf
+                      <|> try pStmts
+                      <|> try pValues
+                      <|> parens pTerm
+                       ) `sepBy1` sc
+
+pMain :: Parser Term
+pMain = pTerm <* eof
+
+
+-----------------
+----- Lexer -----
+-----------------
 
 sc :: Parser ()
 sc = L.space space1 lineCmnt blockCmnt
@@ -154,11 +183,12 @@ identifier = (lexeme . try) (p >>= check)
                  else pure str
 
 
---------------
---- Parser ---
---------------
-
--- | Types
+------------------
+----- Parser -----
+------------------
+-----------
+-- Types --
+-----------
 
 pUnitT :: Parser Type
 pUnitT = rword "Unit" *> pure UnitT
@@ -188,7 +218,11 @@ parseType :: Parser Type
 parseType = try pArrow <|> pPairT <|> pBoolT <|> pNatT
 
 
--- | Terms:
+-----------
+-- Terms --
+-----------
+
+-- | Values
 
 -- TODO: Figure out how to adjust `pTerm` to allow for `rword "()"`
 pUnit :: Parser Term
@@ -196,29 +230,6 @@ pUnit = rword "Unit" *> pure Unit
 
 pBool :: Parser Term
 pBool = (rword "True" *> pure Tru) <|> (rword "False" *> pure Fls)
-
-searchContext :: Eq a => [a] -> a -> Maybe Int
-searchContext ctx val = (find (== val) ctx) >>= flip elemIndex ctx
-
-pVar :: Parser Term
-pVar = do
-  ctx <- ask
-  val <- identifier
-  if null ctx
-    then pure $ Var 0
-    else case searchContext ctx val of
-           Just i -> pure $ Var i
-           Nothing -> customFailure $ UnboundError $ val ++ " not in scope."
-
-pIf :: Parser Term
-pIf = do
-  rword "if" *> colon
-  t1 <- pTerm
-  rword "then" *> colon
-  t2 <- pTerm
-  rword "else" *> colon
-  t3 <- pTerm
-  pure $ If t1 t2 t3
 
 pPeano :: Parser Term
 pPeano = rword "S" *> (S <$> pTerm) <|> (rword "Z" *> pure Z)
@@ -233,6 +244,62 @@ pString = do
   void $ symbol "\""
   manyTill asciiChar (char '\"')
 
+pVar :: Parser Term
+pVar = do
+  ctx <- ask
+  val <- identifier
+  if null ctx
+    then pure $ Var 0
+    else case searchContext ctx val of
+           Just i -> pure $ Var i
+           Nothing -> customFailure $ UnboundError $ val ++ " not in scope."
+  where
+    searchContext :: Eq a => [a] -> a -> Maybe Int
+    searchContext ctx val = (find (== val) ctx) >>= flip elemIndex ctx
+
+pTuple :: Parser Term
+pTuple = parens $ do
+  ts <- zip nats <$> pTerm `sepBy1` symbol ","
+  if length ts == 1
+  then pure $ snd $ head ts
+  else pure $ Tuple ts
+  where
+    nats = show <$> ([1..] :: [Int])
+
+pRecord :: Parser Term
+pRecord = bracket $ do
+  ts <- pClause `sepBy1` symbol ","
+  pure $ Record ts
+  where
+    pClause :: Parser (Varname, Term)
+    pClause = do
+      v1 <- identifier
+      equal
+      t1 <- pTerm
+      pure (v1, t1)
+
+pAbs :: Parser Term
+pAbs = do
+  lambda
+  var <- identifier
+  colon
+  ty <- parseType
+  dot
+  term <- local (updateEnv var) pTerm
+  pure (Abs var ty term)
+
+-- | Statements
+
+pIf :: Parser Term
+pIf = do
+  rword "if" *> colon
+  t1 <- pTerm
+  rword "then" *> colon
+  t2 <- pTerm
+  rword "else" *> colon
+  t3 <- pTerm
+  pure $ If t1 t2 t3
+
 pPair :: Parser Term
 pPair = angleBracket $ do
   t1 <- pTerm
@@ -246,20 +313,6 @@ pAs = parens $ do
   rword "as"
   ty <- parseType
   pure $ As t1 ty
-
-pCase :: Parser Term
-pCase = do
-  rword "case"
-  n <- pTerm
-  rword "of"
-  rword "Z"
-  phatArrow
-  z <- pTerm
-  pipe
-  var <- parensOpt $ rword "S" *> identifier
-  phatArrow
-  s <- local (updateEnv var) pTerm
-  pure $ Case n z var s
 
 pLet :: Parser Term
 pLet = do
@@ -283,26 +336,31 @@ pSnd = do
   t <- pTerm
   pure $ Snd t
 
-pTuple :: Parser Term
-pTuple = parens $ do
-  ts <- zip nats <$> pTerm `sepBy1` symbol ","
-  if length ts == 1
-  then pure $ snd $ head ts
-  else pure $ Tuple ts
-  where
-    nats = show <$> ([1..] :: [Int])
 
-pRecord :: Parser Term
-pRecord = bracket $ do
-  ts <- pClause `sepBy1` symbol ","
-  pure $ Record ts
-  where
-    pClause :: Parser (Varname, Term)
-    pClause = do
-      v1 <- identifier
-      equal
-      t1 <- pTerm
-      pure (v1, t1)
+pInL :: Parser Term
+pInL = undefined
+
+pInR :: Parser Term
+pInR = undefined
+
+pSumCase :: Parser Term
+pSumCase = undefined
+
+-- TODO: Rewrite Case parser to work with sums and nats
+pCase :: Parser Term
+pCase = do
+  rword "case"
+  n <- pTerm
+  rword "of"
+  rword "Z"
+  phatArrow
+  z <- pTerm
+  pipe
+  var <- parensOpt $ rword "S" *> identifier
+  phatArrow
+  s <- local (updateEnv var) pTerm
+  pure $ Case n z var s
+
 
 -- TODO: Figure out how to prevent infinite recursion if I remove the reserved word.
 pGet :: Parser Term
@@ -311,32 +369,3 @@ pGet = do
   t1 <- pTerm
   t2 <- squareBracket identifier
   pure $ Get t1 t2
-
-updateEnv :: Varname -> Bindings -> Bindings
-updateEnv var env = var : env
-
-pAbs :: Parser Term
-pAbs = do
-  lambda
-  var <- identifier
-  colon
-  ty <- parseType
-  dot
-  term <- local (updateEnv var) pTerm
-  pure (Abs var ty term)
-
-pValues :: Parser Term
-pValues = pTuple <|> pRecord <|> pPair <|> pUnit <|> pBool <|> pNat <|> pPeano <|> pVar
-
-pStmts :: Parser Term
-pStmts = pGet <|> pCase <|> pAbs <|> pLet <|> pAs <|> pFst <|> pSnd
-
-pTerm :: Parser Term
-pTerm = foldl1 App <$> (  pIf
-                      <|> try pStmts
-                      <|> try pValues
-                      <|> parens pTerm
-                       ) `sepBy1` sc
-
-pMain :: Parser Term
-pMain = pTerm <* eof
