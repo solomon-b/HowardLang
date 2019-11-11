@@ -130,6 +130,23 @@ typecheck (SumCase t tL vL tR vR) = typecheck t >>= \case
     then pure tyR
     else throwTypeError tL tyR tyL
   ty -> throwTypeError' $ "Expected a Sum Type but got: " ++ show ty
+typecheck (Tag _ t1 ty) = typecheck t1 >>= \ty1 ->
+  if ty1 == ty
+  then pure ty
+  else throwTypeError t1 ty1 ty -- TODO: Improve this error, it does not reference the sum type.
+typecheck (VariantCase t1 cases) = typecheck t1 >>= \case
+  (VariantT cases') -> do
+    types <- traverse (bindLocalTags cases') cases
+    if allEqual types
+    then pure $ types !! 0
+    else throwTypeError' "Type mismatch between cases"
+  ty -> throwTypeError' $ "Expected a Variant Type but got: " ++ show ty
+
+bindLocalTags :: (MonadError Err m , MonadReader Context m) =>
+  [(Tag, Type)] -> (Tag, Binder, Term) -> m Type
+bindLocalTags ty1 (tag, bndr, tC) = case lookup tag ty1 of
+  Just tyC -> bindLocalVar bndr tyC tC
+  Nothing -> throwTypeError' $ "Expected type: " ++ show (VariantT ty1)
 
 
 ------------------------------------------------------------
@@ -141,7 +158,7 @@ throwTypeError t1 ty1 ty2 = throwError . T . TypeError $
   "Type Error:\n\r" ++
   "Expected Type: " ++ show ty2 ++ "\n\r" ++
   "Actual Type: "   ++ show ty1 ++ "\n\r" ++
-  "For Term: "      ++ pretty t1
+  "For Term: "      ++ pretty t1 
 
 throwTypeError' :: MonadError Err m => String -> m a
 throwTypeError' = throwError . T . TypeError

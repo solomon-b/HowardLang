@@ -76,7 +76,7 @@ pValues :: Parser Term
 pValues = pTuple <|> pRecord <|> pPair <|> pUnit <|> pBool <|> pNat <|> pPeano <|> pVar
 
 pStmts :: Parser Term
-pStmts = pGet <|> pSumCase <|> pInR <|> pInL <|> pCase <|> pAbs <|> pLet <|> pAs <|> pFst <|> pSnd
+pStmts = pGet <|> pVariantCase <|> pTag <|> pSumCase <|> pInR <|> pInL <|> pCase <|> pAbs <|> pLet <|> pAs <|> pFst <|> pSnd
 
 pTerm :: Parser Term
 pTerm = foldl1 App <$> (  pIf
@@ -227,8 +227,18 @@ pSumT = do
   ty2 <- parseType
   pure $ SumT ty1 ty2
 
+pVariantT :: Parser Type
+pVariantT = do
+  tags <- p `sepBy1` pipe
+  pure $ VariantT tags
+  where
+    p = do
+      tag <- identifier
+      ty <- parseType
+      pure (tag, ty)
+
 parseType :: Parser Type
-parseType = try pArrow <|> pSumT <|> pPairT <|> pBoolT <|> pNatT
+parseType = try pArrow <|> pVariantT <|> pSumT <|> pPairT <|> pBoolT <|> pNatT
 
 
 -----------
@@ -394,6 +404,30 @@ pCase = do
   phatArrow
   s <- bindLocalVar var pTerm
   pure $ Case n z var s
+
+pTag :: Parser Term
+pTag = do
+  tag <- identifier
+  term <- pTerm
+  ty <- parseType
+  pure $ Tag tag term ty
+
+pVariantCase :: Parser Term
+pVariantCase = do
+  rword "variantCase"
+  t1 <- pTerm
+  rword "of"
+  pats <- pVariantPattern `sepBy1` pipe
+  pure $ VariantCase t1 pats
+
+pVariantPattern :: Parser (Tag, Binder, Term)
+pVariantPattern = do
+  tagVar <- identifier
+  equal
+  tagBinder <- identifier
+  phatArrow
+  t <- bindLocalVar tagBinder pTerm
+  pure (tagVar, tagBinder, t)
 
 -- TODO: Figure out how to prevent infinite recursion if I remove the reserved word.
 pGet :: Parser Term

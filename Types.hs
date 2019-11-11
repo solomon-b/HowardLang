@@ -3,12 +3,16 @@ module TypedLambdaCalcInitial.Types where
 
 import Control.Exception (Exception)
 
+import Data.List (intersperse)
 import Data.Data
+import Data.Function
 --import qualified Data.Text as T
 --import Data.Text.Prettyprint.Doc
 
 import Text.Megaparsec
 
+type Tag = String
+type Binder = String
 type Varname = String
 type DeBruijn = Int
 type ContextLength = Int
@@ -35,6 +39,8 @@ data Term
   | InL Term Type
   | InR Term Type
   | SumCase Term Term Varname Term Varname
+  | Tag Tag Term Type
+  | VariantCase Term [(Tag, Binder, Term)] -- [(binder, tag)]
   deriving (Show, Eq)
 
 
@@ -73,7 +79,8 @@ data Type
   | TupleT [Type]
   | RecordT [Type]
   | SumT Type Type
-  deriving Eq
+  | VariantT [(Tag, Type)]
+  deriving (Data, Eq)
 
 instance Show Type where
   show BoolT = "Bool"
@@ -88,7 +95,14 @@ instance Show Type where
   show (TupleT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ show <$> ts in "(" ++ tys ++ ")"
   show (RecordT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ show <$> ts in "{" ++ tys ++ "}"
   show (SumT left right) = "Sum " ++ show left ++ " " ++ show right
+  show v@(VariantT _) = showVariant v
 
+
+showVariant :: Type -> String
+showVariant (VariantT tys) = unwords . intersperse "|" $ f <$> tys
+  where
+    f :: (Varname, Type) -> String
+    f (var, ty) = var ++ " " ++ show ty
 {-
 instance Pretty Type where
   pretty = viaShow
@@ -138,6 +152,7 @@ isVal c (Tuple ts)  = all (isVal c . snd) ts
 isVal c (Record ts)  = all (isVal c . snd) ts
 isVal c (InL t _)   = isVal c t
 isVal c (InR t _)   = isVal c t
+isVal c (Tag _ t _) = isVal c t
 -- TODO: Should Lets and Cases be considered values if their terms are fully reduced? I think so?
 isVal _ _           = False
 
@@ -146,6 +161,12 @@ isNat Z = True
 isNat (S n) = isNat n
 isNat _ = False
 
+constrEq :: Data a => a -> a -> Bool
+constrEq = (==) `on` toConstr
+
+allEqual :: Eq a => [a] -> Bool
+allEqual [] = True
+allEqual (x:xs) = all (== x) xs
 
 -- TODO: Fix this bug:
 -- λ> let x = {foo=inr True : Sum Nat Bool} in (get x[foo])
