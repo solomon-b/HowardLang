@@ -73,7 +73,7 @@ cmd input =
         _ <- runTypecheckM [] (typecheck parsed)
         reduced <- (Right $ multiStepEval [] parsed :: Either Err Term)
         --let reduced = bigStepEval [] parsed
-        return $ show reduced
+        return $ pretty reduced
   in liftIO $ either (putStrLn . showE) putStrLn res
 
 quit :: a -> Repl ()
