@@ -68,7 +68,7 @@ pretty t = runReader (f t) []
       l' <- f l
       m' <- f m
       n' <- local (const (v:ctx)) (f n)
-      pure $ "case "   ++ l' ++ " of: " ++
+      pure $ "case "   ++ l' ++ " of " ++
              "Z => " ++ m' ++ " | "  ++
              "S "    ++ v  ++ " => " ++ n'
     f (Let x t1 t2) = do
@@ -91,3 +91,13 @@ pretty t = runReader (f t) []
     f (Record ts) = do
       ts' <- traverse (\(v1,t1) -> ((++) (v1 ++ "=")) <$> f t1) ts
       pure $ "{" ++ unwords (intersperse "," ts') ++ "}"
+    f (InR t1 ty) = pure $ "inr " ++ pretty t1 ++ " :: " ++ show ty
+    f (InL t1 ty) = pure $ "inl " ++ pretty t1 ++ " :: " ++ show ty
+    f (SumCase t1 tL vL tR vR) = do
+      ctx <- ask
+      t1' <- f t1
+      tL' <- local (const (vL:ctx)) (f tL)
+      tR' <- local (const (vR:ctx)) (f tR)
+      pure $ "sumCase " ++ t1' ++ " of " ++
+             "inl " ++ vL ++ " => " ++ tL' ++ " | "  ++
+             "inr " ++ vR ++ " => " ++ tR'

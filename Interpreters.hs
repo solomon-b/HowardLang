@@ -66,8 +66,8 @@ shift target t = f 0 t
     f i (Tuple ts) = Tuple $ (fmap . fmap) (f i) ts
     f i (Record ts) = Record $ (fmap . fmap) (f i) ts
     f i (Get t1 v) = Get (f i t1) v
-    f i (InL t1) = InL (f i t1)
-    f i (InR t1) = InR (f i t1)
+    f i (InL t1 ty) = InL (f i t1) ty
+    f i (InR t1 ty) = InR (f i t1) ty
     f i (SumCase t1 tL vL tR vR) = SumCase (f i t1) (f (i + 1) tL) vL (f (i + 1) tR) vR
 
 {-
@@ -83,6 +83,7 @@ Substitution Rules:
 [1 -> 2]\.1 = \.2
 -}
 
+-- NOTE: Would lenses help clean up this sort of nonsense?
 subst :: DeBruijn -> Term -> Term -> Term
 subst j s t = f 0 s t
   where f :: DeBruijn -> Term -> Term -> Term
@@ -108,8 +109,8 @@ subst j s t = f 0 s t
         f c s' (Tuple ts) = Tuple $ (fmap . fmap) (f c s' ) ts
         f c s' (Record ts) = Record $ (fmap . fmap) (f c s' ) ts
         f c s' (Get t1 v) = Get (f c s' t1) v
-        f c s' (InL t1) = InL (f c s' t1)
-        f c s' (InR t1) = InR (f c s' t1)
+        f c s' (InL t1 ty) = InL (f c s' t1) ty
+        f c s' (InR t1 ty) = InR (f c s' t1) ty
         f c s' (SumCase t1 tL vL tR vR) =
           SumCase (f c s' t1)
                   (f (c + 1) (shift c s') tL)
@@ -160,12 +161,10 @@ singleEval ctx t =
     (Get t1 var) | not $ isVal ctx t1 -> singleEval ctx t1 >>= \t1' -> pure (Get t1' var)
     (SumCase t1 tL vL tR vR) | not $ isVal ctx t1 ->
       singleEval ctx t1 >>= \t1' -> pure (SumCase t1' tL vL tR vR)
-    (SumCase (InL t1) tL _ _ _) -> pure $ substTop t1 tL
-    (SumCase (InR t1) _ _ tR _) -> pure $ substTop t1 tR
-    (InL t1) | isVal ctx t1 -> pure t1
-    (InL t1) -> singleEval ctx t1 >>= pure . InL
-    (InR t1) | isVal ctx t1 -> pure t1
-    (InR t1) -> singleEval ctx t1 >>= pure . InR
+    (SumCase (InL t1 _) tL _ _ _) -> pure $ substTop t1 tL
+    (SumCase (InR t1 _) _ _ tR _) -> pure $ substTop t1 tR
+    (InL t1 ty) -> flip InR ty <$> singleEval ctx t1
+    (InR t1 ty) -> flip InR ty <$> singleEval ctx t1
     _ -> Nothing
 
 -- Multistep Evaluation Function
@@ -199,13 +198,15 @@ bigStepEval _ (Snd (Pair _ t2)) = t2
 bigStepEval ctx (Snd t1) = bigStepEval ctx t1
 bigStepEval ctx (Pair t1 t2) = Pair (bigStepEval ctx t1) (bigStepEval ctx t2)
 bigStepEval ctx (Tuple ts) = Tuple $ ts >>= \(v,t) -> pure (v, bigStepEval ctx t)
-bigStepEval ctx (Record ts) = Tuple $ ts >>= \(v,t) -> pure (v, bigStepEval ctx t)
+bigStepEval ctx (Record ts) = Record $ ts >>= \(v,t) -> pure (v, bigStepEval ctx t)
 bigStepEval ctx (SumCase t1 tL _ tR _) =
    let t1' = bigStepEval ctx t1
    in case t1' of
-     (InL t1'') -> bigStepEval ctx $ substTop t1'' tL
-     (InR t1'') -> bigStepEval ctx $ substTop t1'' tR
+     (InL t1'' _) -> bigStepEval ctx $ substTop t1'' tL
+     (InR t1'' _) -> bigStepEval ctx $ substTop t1'' tR
      x -> error $ show x -- NOTE: Typechecker should make this state impossible
+bigStepEval _ t@(InL _ _) = t
+bigStepEval _ t@(InR _ _) = t
 bigStepEval _ Unit = Unit
 bigStepEval _ Tru = Tru
 bigStepEval _ Fls = Fls

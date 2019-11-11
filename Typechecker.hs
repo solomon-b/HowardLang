@@ -112,13 +112,29 @@ typecheck (Get (Record ts) v) =
     Nothing -> throwTypeError' $ "Type Error: No such field " ++ v ++ " in record"
 typecheck (Get t1 _) = throwTypeError' $ "Type Error: " ++ pretty t1 ++ " is not a Tuple or Record."
 typecheck (Record ts) = traverse (\(_,t) -> typecheck t) ts >>= pure . RecordT
-typecheck (InL t1) = flip SumT undefined <$> typecheck t1 -- TODO: How do you determine the type of the other half of the union???
-typecheck (InR t1) = SumT undefined <$> typecheck t1      -- TODO: How do you determine the type of the other half of the union???
-typecheck (SumCase t tL vL tR vR) =
-  case t of
-    (InL t1) -> typecheck t1 >>= \ty1 -> bindLocalVar vL ty1 tL
-    (InR t1) -> typecheck t1 >>= \ty1 -> bindLocalVar vR ty1 tR
-    t1 -> do (show <$> typecheck t1) >>= \ty -> throwTypeError' $ "Expected a Sum Type but got: " ++ ty
+typecheck (InL t1 ty@(SumT tyL _)) = typecheck t1 >>= \ty1 ->
+  if ty1 == tyL
+  then pure ty
+  else throwTypeError t1 ty1 tyL -- TODO: Improve this error, it does not reference the sum type.
+typecheck (InL _ ty) = throwTypeError' $ "Type Error: " ++ show ty ++ " is not a Sum type."
+typecheck (InR t1 ty@(SumT _ tyR)) = typecheck t1 >>= \ty1 ->
+  if ty1 == tyR
+  then pure ty
+  else throwTypeError t1 ty1 tyR -- TODO: Improve this error, it does not reference the sum type.
+typecheck (InR _ ty) = throwTypeError' $ "Type Error: " ++ show ty ++ " is not a Sum type."
+typecheck (SumCase t tL vL tR vR) = typecheck t >>= \case
+  (SumT l r) -> do
+    tyL <- bindLocalVar vL l tL
+    tyR <- bindLocalVar vR r tR
+    if tyL == tyR
+    then pure tyR
+    else throwTypeError tL tyR tyL
+  ty -> throwTypeError' $ "Expected a Sum Type but got: " ++ show ty
+
+
+------------------------------------------------------------
+------ TODO: IMPROVE ERROR MESSAGING MASSIVELY !!!!!! ------
+------------------------------------------------------------
 
 throwTypeError :: MonadError Err m => Term -> Type -> Type -> m a
 throwTypeError t1 ty1 ty2 = throwError . T . TypeError $

@@ -32,8 +32,8 @@ data Term
   | Tuple [(Varname, Term)]
   | Get Term Varname -- Get Tuple Nat
   | Record [(Varname, Term)]
-  | InL Term
-  | InR Term
+  | InL Term Type
+  | InR Term Type
   | SumCase Term Term Varname Term Varname
   deriving (Show, Eq)
 
@@ -87,12 +87,15 @@ instance Show Type where
   show (PairT t1 t2) = "<" ++ show t1 ++ ", " ++ show t2 ++ ">"
   show (TupleT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ show <$> ts in "(" ++ tys ++ ")"
   show (RecordT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ show <$> ts in "{" ++ tys ++ "}"
-  show (SumT left right) = "Left " ++ show left ++ " | " ++ "Right " ++ show right
+  show (SumT left right) = "Sum " ++ show left ++ " " ++ show right
 
 {-
 instance Pretty Type where
   pretty = viaShow
 -}
+
+-- TODO: Implement a Context for type aliases!
+-- https://gist.github.com/ssbothwell/3a263a13df31942c292585d608c3892b
 
 -- | Context Types
 type Bindings = [Varname]
@@ -102,7 +105,7 @@ updateContext :: (Varname, Type) -> Context -> Context
 updateContext t ctx = t:ctx
 
 -- | Error Types
-data UnboundError = UnboundError String
+newtype UnboundError = UnboundError String
   deriving (Eq, Data, Typeable, Ord, Read, Show)
 
 instance ShowErrorComponent UnboundError where
@@ -121,7 +124,6 @@ instance Exception Err
 --- Misc Helpers ---
 --------------------
 
-
 -- Other then Application, what should not be a value?
 isVal :: Context -> Term -> Bool
 isVal _ (Abs _ _ _) = True
@@ -133,8 +135,9 @@ isVal c (S n)       = isVal c n
 isVal c (As t1 _)   = isVal c t1
 isVal c (Pair t1 t2) = isVal c t1 && isVal c t2
 isVal c (Tuple ts)  = all (isVal c . snd) ts
-isVal c (InL t)     = isVal c t
-isVal c (InR t)     = isVal c t
+isVal c (Record ts)  = all (isVal c . snd) ts
+isVal c (InL t _)   = isVal c t
+isVal c (InR t _)   = isVal c t
 -- TODO: Should Lets and Cases be considered values if their terms are fully reduced? I think so?
 isVal _ _           = False
 
@@ -142,3 +145,9 @@ isNat :: Term -> Bool
 isNat Z = True
 isNat (S n) = isNat n
 isNat _ = False
+
+
+-- TODO: Fix this bug:
+-- λ> let x = {foo=inr True : Sum Nat Bool} in (get x[foo])
+-- typedLCI: Prelude.!!: index too large
+

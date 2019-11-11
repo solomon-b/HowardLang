@@ -37,11 +37,11 @@ TUPLE = "(" TERM { "," TERM } ")";
 PROJ = "get" TERM "[" VAR "]";
 RECORD = "{" VAR "=" TERM { "," VAR "=" TERM } "}";
 GROUP = "(" TERM ")";
-INR = "inr" TERM;
-INL = "inl" TERM;
+INR = "inr" TERM TYPE;
+INL = "inl" TERM TYPE;
 SUMCASE = "sumCase" TERM "of" "(" "inl" VAR ")" "=>" TERM "|" "(" "inr" VAR ")" "=>" TERM;
 
-TYPE = "Unit" | "Bool" | "Nat" | TYPE "->" "TYPE" | TYPE "x" TYPE | "(" TYPE { "," TYPE } ")" | "{" TYPE { "," TYPE } "}";
+TYPE = "Unit" | "Bool" | "Nat" | TYPE "->" "TYPE" | TYPE "x" TYPE | "(" TYPE { "," TYPE } ")" | "{" TYPE { "," TYPE } "}" | Sum Type Type;
 TERM = GROUP | VAR | S | Z | BOOL | APP | ABS | CASE | IF | PAIR | FST | SND | TUPLE | PROJ | RECORD | INR | INL | SUMCASE;
 -}
 
@@ -76,7 +76,7 @@ pValues :: Parser Term
 pValues = pTuple <|> pRecord <|> pPair <|> pUnit <|> pBool <|> pNat <|> pPeano <|> pVar
 
 pStmts :: Parser Term
-pStmts = pGet <|> pCase <|> pAbs <|> pLet <|> pAs <|> pFst <|> pSnd
+pStmts = pGet <|> pSumCase <|> pInR <|> pInL <|> pCase <|> pAbs <|> pLet <|> pAs <|> pFst <|> pSnd
 
 pTerm :: Parser Term
 pTerm = foldl1 App <$> (  pIf
@@ -173,6 +173,9 @@ rws = [ "if"
       , "snd"
       , "get"
       , ","
+      , "inl"
+      , "inr"
+      , "Sum"
       ]
 
 identifier :: Parser String
@@ -217,8 +220,15 @@ pPairT = do
   ty2 <- parseType
   pure $ PairT ty1 ty2
 
+pSumT :: Parser Type
+pSumT = do
+  rword "Sum"
+  ty1 <- parseType
+  ty2 <- parseType
+  pure $ SumT ty1 ty2
+
 parseType :: Parser Type
-parseType = try pArrow <|> pPairT <|> pBoolT <|> pNatT
+parseType = try pArrow <|> pSumT <|> pPairT <|> pBoolT <|> pNatT
 
 
 -----------
@@ -341,10 +351,20 @@ pSnd = do
 
 
 pInL :: Parser Term
-pInL = undefined
+pInL = do
+  rword "inl"
+  t1 <- pTerm
+  colon
+  ty <- parseType
+  pure $ InL t1 ty
 
 pInR :: Parser Term
-pInR = undefined
+pInR = do
+  rword "inr"
+  t1 <- pTerm
+  colon
+  ty <- parseType
+  pure $ InR t1 ty
 
 pSumCase :: Parser Term
 pSumCase = do
@@ -353,14 +373,14 @@ pSumCase = do
   rword "of"
   vL <- parensOpt $ rword "inl" *> identifier
   phatArrow
+  tL <- bindLocalVar vL pTerm
   pipe
   vR <- parensOpt $ rword "inr" *> identifier
   phatArrow
-  tL <- bindLocalVar vL pTerm
   tR <- bindLocalVar vR pTerm
   pure $ SumCase t1 tL vL tR vR
 
--- TODO: Rewrite Case parser to work with sums and nats
+-- TODO: Rewrite Case parser to work with both sums and nats
 pCase :: Parser Term
 pCase = do
   rword "case"
@@ -374,7 +394,6 @@ pCase = do
   phatArrow
   s <- bindLocalVar var pTerm
   pure $ Case n z var s
-
 
 -- TODO: Figure out how to prevent infinite recursion if I remove the reserved word.
 pGet :: Parser Term

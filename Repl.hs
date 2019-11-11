@@ -1,12 +1,4 @@
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE DeriveFoldable #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE KindSignatures #-}
 --module TypedLambdaCalcInitial.Repl (repl) where
 module TypedLambdaCalcInitial.Repl where
 
@@ -81,7 +73,7 @@ cmd input =
         _ <- runTypecheckM [] (typecheck parsed)
         reduced <- (Right $ multiStepEval [] parsed :: Either Err Term)
         --let reduced = bigStepEval [] parsed
-        return $ pretty reduced
+        return $ show reduced
   in liftIO $ either (putStrLn . showE) putStrLn res
 
 quit :: a -> Repl ()
