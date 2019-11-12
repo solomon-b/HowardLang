@@ -83,6 +83,7 @@ typeof :: [String] -> Repl ()
 typeof strs =
   let ty = do
         term <- runParse $ unwords strs
+        pure $ show term
         show <$> runTypecheckM [] (typecheck term)
   in liftIO $ either (putStrLn . showE) putStrLn ty
 

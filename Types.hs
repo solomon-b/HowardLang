@@ -38,7 +38,7 @@ data Term
   | Record [(Varname, Term)]
   | InL Term Type
   | InR Term Type
-  | SumCase Term Term Varname Term Varname
+  | SumCase Term Term Binder Term Binder
   | Tag Tag Term Type
   | VariantCase Term [(Tag, Binder, Term)] -- [(binder, tag)]
   deriving (Show, Eq)
@@ -97,7 +97,6 @@ instance Show Type where
   show (SumT left right) = "Sum " ++ show left ++ " " ++ show right
   show v@(VariantT _) = showVariant v
 
-
 showVariant :: Type -> String
 showVariant (VariantT tys) = unwords . intersperse "|" $ f <$> tys
   where
@@ -137,6 +136,9 @@ instance Exception Err
 --------------------
 --- Misc Helpers ---
 --------------------
+
+instance Functor ((,,) a b) where
+  fmap f (a,b,c) = (a, b, f c)
 
 -- Other then Application, what should not be a value?
 isVal :: Context -> Term -> Bool

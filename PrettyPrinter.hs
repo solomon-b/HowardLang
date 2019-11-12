@@ -91,8 +91,8 @@ pretty t = runReader (f t) []
     f (Record ts) = do
       ts' <- traverse (\(v1,t1) -> ((++) (v1 ++ "=")) <$> f t1) ts
       pure $ "{" ++ unwords (intersperse "," ts') ++ "}"
-    f (InR t1 ty) = pure $ "inr " ++ pretty t1 ++ " :: " ++ show ty
-    f (InL t1 ty) = pure $ "inl " ++ pretty t1 ++ " :: " ++ show ty
+    f (InR t1 _) = pure $ "inr " ++ pretty t1
+    f (InL t1 _) = pure $ "inl " ++ pretty t1
     f (SumCase t1 tL vL tR vR) = do
       ctx <- ask
       t1' <- f t1
@@ -101,3 +101,10 @@ pretty t = runReader (f t) []
       pure $ "sumCase " ++ t1' ++ " of " ++
              "inl " ++ vL ++ " => " ++ tL' ++ " | "  ++
              "inr " ++ vR ++ " => " ++ tR'
+    f (Tag tag t1 _) = pure $ tag ++ " " ++ pretty t1
+    f (VariantCase t1 cases) = do
+      ctx <- ask
+      t1' <- f t1
+      patterns <- traverse (\(tag, bndr, t') -> local (const (tag:ctx)) (f t') >>= \tC -> pure $ tag ++ " " ++ bndr ++ " => " ++ tC) cases
+      pure $ "variantCase " ++ t1' ++ " of " ++ show patterns
+

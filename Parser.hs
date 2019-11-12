@@ -40,6 +40,8 @@ GROUP = "(" TERM ")";
 INR = "inr" TERM TYPE;
 INL = "inl" TERM TYPE;
 SUMCASE = "sumCase" TERM "of" "(" "inl" VAR ")" "=>" TERM "|" "(" "inr" VAR ")" "=>" TERM;
+TAG = "tag" VAR TERM "as" TYPE;
+VARIANTCASE = "variantCase" TERM "of" VAR VAR "=>" TERM { "|" VAR VAR "=>" TERM };
 
 TYPE = "Unit" | "Bool" | "Nat" | TYPE "->" "TYPE" | TYPE "x" TYPE | "(" TYPE { "," TYPE } ")" | "{" TYPE { "," TYPE } "}" | Sum Type Type;
 TERM = GROUP | VAR | S | Z | BOOL | APP | ABS | CASE | IF | PAIR | FST | SND | TUPLE | PROJ | RECORD | INR | INL | SUMCASE;
@@ -176,6 +178,8 @@ rws = [ "if"
       , "inl"
       , "inr"
       , "Sum"
+      , "sumCase"
+      , "variantCase"
       ]
 
 identifier :: Parser String
@@ -188,6 +192,15 @@ identifier = (lexeme . try) (p >>= check)
                  then fail $ "keyword " ++ show str ++ " cannot be an identifier"
                  else pure str
 
+constructor :: Parser String
+constructor = (lexeme . try) (p >>= check)
+  where
+    p :: Parser String
+    p = (:) <$> upperChar <*> many alphaNumChar
+    check :: String -> Parser String
+    check str = if str `elem` rws
+                 then fail $ "keyword " ++ show str ++ " cannot be an identifier"
+                 else pure str
 
 ------------------
 ----- Parser -----
@@ -233,7 +246,7 @@ pVariantT = do
   pure $ VariantT tags
   where
     p = do
-      tag <- identifier
+      tag <- constructor
       ty <- parseType
       pure (tag, ty)
 
@@ -407,9 +420,11 @@ pCase = do
 
 pTag :: Parser Term
 pTag = do
-  tag <- identifier
+  rword "tag"
+  tag <- constructor
   term <- pTerm
-  ty <- parseType
+  rword "as"
+  ty <- parensOpt $ parseType
   pure $ Tag tag term ty
 
 pVariantCase :: Parser Term
@@ -422,7 +437,7 @@ pVariantCase = do
 
 pVariantPattern :: Parser (Tag, Binder, Term)
 pVariantPattern = do
-  tagVar <- identifier
+  tagVar <- constructor
   equal
   tagBinder <- identifier
   phatArrow

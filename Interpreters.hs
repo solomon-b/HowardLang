@@ -2,6 +2,7 @@ module TypedLambdaCalcInitial.Interpreters where
 
 import Control.Applicative
 import Data.Monoid (Sum(..))
+import Data.List (find)
 
 import TypedLambdaCalcInitial.Types
 
@@ -69,6 +70,8 @@ shift target t = f 0 t
     f i (InL t1 ty) = InL (f i t1) ty
     f i (InR t1 ty) = InR (f i t1) ty
     f i (SumCase t1 tL vL tR vR) = SumCase (f i t1) (f (i + 1) tL) vL (f (i + 1) tR) vR
+    f i (Tag tag t1 ty) = Tag tag (f i t1) ty
+    f i (VariantCase t1 cases) = VariantCase (f i t1) $ cases >>= \(tag, bnd, trm) -> pure (tag, bnd, f (i + 1) trm)
 
 {-
 TODO: Update Substition Rules for all new terms
@@ -117,6 +120,9 @@ subst j s t = f 0 s t
                   vL
                   (f (c + 1) (shift c s') tR)
                   vR
+        f c s' (Tag tag t1 ty) = Tag tag (f c s' t1) ty
+        f c s' (VariantCase t1 cases) = let cases' = ((fmap . fmap) (f (c + 1) (shift c s')) cases)
+                                        in VariantCase (f c s' t1) cases'
 
 substTop :: Term -> Term -> Term
 substTop s t = shift (-1) (subst 0 (shift 1 s) t)
@@ -146,11 +152,11 @@ singleEval ctx t =
     (Snd t1)                              -> singleEval ctx t1 >>= \t1' -> pure $ Snd t1'
     (Pair t1 t2) | not $ isVal ctx t1     -> singleEval ctx t1 >>= \v1 -> pure $ Pair v1 t2
     (Pair t1 t2)                          -> singleEval ctx t2 >>= \v2 -> pure $ Pair t1 v2
-    (Tuple ts) ->  do
+    (Tuple ts) ->
       let evalElem [] = Nothing
           evalElem ((v, t1):ts') | isVal ctx t1 = let ts'' = evalElem ts' in ((:) (v, t1)) <$> ts''
           evalElem ((v, t1):ts') = let t1' = (,) v <$> (singleEval ctx t1) in liftA2 (:) t1' (pure ts')
-      Tuple <$> evalElem ts
+      in Tuple <$> evalElem ts
     (Record ts) -> do
       let evalElem [] = Nothing
           evalElem ((v, t1):ts') | isVal ctx t1 = let ts'' = evalElem ts' in ((:) (v, t1)) <$> ts''
@@ -165,6 +171,19 @@ singleEval ctx t =
     (SumCase (InR t1 _) _ _ tR _) -> pure $ substTop t1 tR
     (InL t1 ty) -> flip InR ty <$> singleEval ctx t1
     (InR t1 ty) -> flip InR ty <$> singleEval ctx t1
+    (Tag tag t1 ty) -> singleEval ctx t1 >>= \t1' -> pure $ Tag tag t1' ty
+    (VariantCase t1 cases) | not $ isVal ctx t1 -> singleEval ctx t1 >>= \t1' -> pure (VariantCase t1' cases)
+    (VariantCase t1 cases) | all (\(_, _, trm) -> isVal ctx trm) cases ->
+      case t1 of
+        (Tag tag t1' _) -> case find (\(tag',_,_) -> tag == tag') cases of
+          Just (_,_, term) -> pure $ substTop t1' term
+          Nothing -> Nothing
+        _ -> Nothing
+    (VariantCase t1 cases) ->
+      let evalElem [] = Nothing
+          evalElem (cse@(_, _, trm):ts) | isVal ctx trm = let ts' = evalElem ts in ((:) cse) <$> ts'
+          evalElem ((tag, bnd, trm):ts) = let trm' = (,,) tag bnd <$> (singleEval ctx trm) in liftA2 (:) trm' (pure ts)
+      in VariantCase t1 <$> evalElem cases
     _ -> Nothing
 
 -- Multistep Evaluation Function
@@ -205,8 +224,12 @@ bigStepEval ctx (SumCase t1 tL _ tR _) =
      (InL t1'' _) -> bigStepEval ctx $ substTop t1'' tL
      (InR t1'' _) -> bigStepEval ctx $ substTop t1'' tR
      x -> error $ show x -- NOTE: Typechecker should make this state impossible
+bigStepEval ctx (VariantCase t1 cases) =
+  let t1' = bigStepEval ctx t1
+  in undefined
 bigStepEval _ t@(InL _ _) = t
 bigStepEval _ t@(InR _ _) = t
+bigStepEval _ t@(Tag _ _ _) = t
 bigStepEval _ Unit = Unit
 bigStepEval _ Tru = Tru
 bigStepEval _ Fls = Fls
