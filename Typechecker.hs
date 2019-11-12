@@ -111,6 +111,7 @@ typecheck (Get (Record ts) v) =
     Just t -> typecheck t
     Nothing -> throwTypeError' $ "Type Error: No such field " ++ v ++ " in record"
 typecheck (Get t1 _) = throwTypeError' $ "Type Error: " ++ pretty t1 ++ " is not a Tuple or Record."
+-- TODO: Typechecker is passing `{foo=1, foo=True}`
 typecheck (Record ts) = traverse (\(_,t) -> typecheck t) ts >>= pure . RecordT
 typecheck (InL t1 ty@(SumT tyL _)) = typecheck t1 >>= \ty1 ->
   if ty1 == tyL
@@ -130,6 +131,7 @@ typecheck (SumCase t tL vL tR vR) = typecheck t >>= \case
     then pure tyR
     else throwTypeError tL tyR tyL
   ty -> throwTypeError' $ "Expected a Sum Type but got: " ++ show ty
+-- TODO: Typecheck is passing: `(tag Right 0 as (Left Nat | Right Bool))`
 typecheck (Tag tag t1 ty) = typecheck t1 >>= \ty1 ->
   case ty of
     VariantT tys ->

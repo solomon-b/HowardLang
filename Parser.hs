@@ -74,6 +74,8 @@ run p = runIdentity . flip runReaderT [] . runParserT p mempty
 
 -- | Composed Parser
 
+-- TODO: Recurses infinitely: `(tag Right (1, True) as (Left Unit | Right (Nat, Bool)))`
+-- TODO: Parser blows up with out of scope Vars
 pValues :: Parser Term
 pValues = pTuple <|> pRecord <|> pPair <|> pUnit <|> pBool <|> pNat <|> pPeano <|> pVar
 
@@ -86,7 +88,6 @@ pTerm = foldl1 App <$> (  pIf
                       <|> try pValues
                       <|> parens pTerm
                        ) `sepBy1` sc
-
 pMain :: Parser Term
 pMain = pTerm <* eof
 
