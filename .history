@@ -1,3 +1,14 @@
+(tag Left Nat as (Left Nat | Right Bool))
+(tag Left Unit as (Left Nat | Right Bool))
+(tag Left Unit as (Left Nat | Right Bool))
+(tag Left Unit as (Left Nat | Right Bool))
+(tag Left Unit as (Left Nat | Right Bool))
+(tag Let Unit as (Left Nat | Right Bool))
+(tag Right Unit as (Left Nat | Right Bool))
+(tag Right 0 as (Left Nat | Right Bool))
+(tag Right (1, True) as (Left Unit | Right (Nat, Bool)))
+{foo=1, foo=True}
+(tag Right 0 as (Left Nat | Right Bool))
 <1, <2, <3, Unit>>>
 <1, <2, <3, Nil>>>
 <1, <2, <3, 4>>>
@@ -85,16 +96,5 @@ Trye
 (\val:Left Nat | Right Bool.variantCase val of Left=n => False | Right=p => (\n:Nat.False))
 (\val:Left Nat | Right Bool.variantCase val of Left=n => False | Right=p => p)
 (\val:Left Nat | Right Bool.variantCase val of Left=n => False | Right=p => p)
-(\val:Left Nat | Right Bool.variantCase val of Left=n => False | Right=p => p) (tag Left Z as (Left Nat | Right Bool))
-:t (\val:Left Nat | Right Bool.variantCase val of Left=n => False | Right=p => p) (tag Left Z as (Left Nat | Right Bool))
-:t (\val:Left Nat | Right Bool.variantCase val of Left=n => False | Right=p => p) (tag Left Z as (Left Nat | Right Bool))
-(\val:Left Nat | Right Bool.variantCase val of Left=n => False | Right=p => p) (tag Left Z as (Left Nat | Right Bool))
-((\n:Nat.S n) 0, (\m:Nat.S m) 0)
-((\n:Nat.S n), (\m:Nat.S m) 0)
-((\n:Nat.S n), (\m:Nat.S m))
-((\n:Nat.S n), \m:Nat.S m)
-(\n:Nat.S n, \m:Nat.S m)
-(\val:Left Nat | Right Bool.variantCase val of Left=n => False | Right=p => p) (tag Left Z as (Left Nat | Right Bool))
-(\val:Left Nat | Right Bool.variantCase val of Left=n => False | Right=p => p) (tag Left Z as (Left Nat | Right Bool))
 (\val:Left Nat | Right Bool.variantCase val of Left=n => False | Right=p => p) (tag Left Z as (Left Nat | Right Bool))
 :t (\val:Left Nat | Right Bool.variantCase val of Left=n => False | Right=p => p) (tag Left Z as (Left Nat | Right Bool))

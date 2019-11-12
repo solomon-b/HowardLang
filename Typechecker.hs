@@ -131,13 +131,12 @@ typecheck (SumCase t tL vL tR vR) = typecheck t >>= \case
     then pure tyR
     else throwTypeError tL tyR tyL
   ty -> throwTypeError' $ "Expected a Sum Type but got: " ++ show ty
--- TODO: Typecheck is passing: `(tag Right 0 as (Left Nat | Right Bool))`
 typecheck (Tag tag t1 ty) = typecheck t1 >>= \ty1 ->
   case ty of
     VariantT tys ->
       case lookup tag tys of
-        Just _ -> pure ty
-        Nothing -> throwTypeError t1 ty1 ty -- TODO: Improve this error, it does not reference the sum type.
+        Just ty' | ty' == ty1 -> pure ty
+        _ -> throwTypeError t1 ty1 ty -- TODO: Improve this error, it does not reference the sum type.
     _ -> throwTypeError t1 ty1 ty
 
 
