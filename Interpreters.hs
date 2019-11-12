@@ -173,17 +173,23 @@ singleEval ctx t =
     (InR t1 ty) -> flip InR ty <$> singleEval ctx t1
     (Tag tag t1 ty) -> singleEval ctx t1 >>= \t1' -> pure $ Tag tag t1' ty
     (VariantCase t1 cases) | not $ isVal ctx t1 -> singleEval ctx t1 >>= \t1' -> pure (VariantCase t1' cases)
-    (VariantCase t1 cases) | all (\(_, _, trm) -> isVal ctx trm) cases ->
+    (VariantCase t1 cases) ->
       case t1 of
         (Tag tag t1' _) -> case find (\(tag',_,_) -> tag == tag') cases of
           Just (_,_, term) -> pure $ substTop t1' term
           Nothing -> Nothing
         _ -> Nothing
-    (VariantCase t1 cases) ->
-      let evalElem [] = Nothing
-          evalElem (cse@(_, _, trm):ts) | isVal ctx trm = let ts' = evalElem ts in ((:) cse) <$> ts'
-          evalElem ((tag, bnd, trm):ts) = let trm' = (,,) tag bnd <$> (singleEval ctx trm) in liftA2 (:) trm' (pure ts)
-      in VariantCase t1 <$> evalElem cases
+    --(VariantCase t1 cases) | all (\(_, _, trm) -> isVal ctx trm) cases ->
+    --  case t1 of
+    --    (Tag tag t1' _) -> case find (\(tag',_,_) -> tag == tag') cases of
+    --      Just (_,_, term) -> pure $ substTop t1' term
+    --      Nothing -> Nothing
+    --    _ -> Nothing
+    --(VariantCase t1 cases) ->
+    --  let evalElem [] = Nothing
+    --      evalElem (cse@(_, _, trm):ts) | isVal ctx trm = let ts' = evalElem ts in ((:) cse) <$> ts'
+    --      evalElem ((tag, bnd, trm):ts) = let trm' = (,,) tag bnd <$> (singleEval ctx trm) in liftA2 (:) trm' (pure ts)
+    --  in VariantCase t1 <$> evalElem cases
     _ -> Nothing
 
 -- Multistep Evaluation Function
