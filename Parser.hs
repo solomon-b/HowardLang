@@ -361,7 +361,7 @@ pLet = do
   var <- identifier
   params <- optional pLetParams
   rword "="
-  t1 <- genCurriedAbs params
+  t1 <- parseAbsWrappedTerm params
   rword "in"
   t2 <- bindLocalVar var pTerm
   pure $ Let var t1 t2
@@ -373,9 +373,9 @@ pLetParams = some . parens $ do
   ty <- parseType
   pure (var, ty)
 
-genCurriedAbs :: Maybe [(Varname, Type)] -> Parser Term
-genCurriedAbs Nothing = pTerm
-genCurriedAbs (Just xs) = ask >>= \ctx ->
+parseAbsWrappedTerm :: Maybe [(Varname, Type)] -> Parser Term
+parseAbsWrappedTerm Nothing = pTerm
+parseAbsWrappedTerm (Just xs) = ask >>= \ctx ->
     let bindings = foldl (flip updateEnv) ctx $ fst <$> xs
     in foldr (\(var, ty) t -> Abs var ty <$> t) (local (const bindings) pTerm) xs
 
