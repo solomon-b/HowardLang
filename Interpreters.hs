@@ -72,6 +72,7 @@ shift target t = f 0 t
     f i (SumCase t1 tL vL tR vR) = SumCase (f i t1) (f (i + 1) tL) vL (f (i + 1) tR) vR
     f i (Tag tag t1 ty) = Tag tag (f i t1) ty
     f i (VariantCase t1 cases) = VariantCase (f i t1) $ cases >>= \(tag, bnd, trm) -> pure (tag, bnd, f (i + 1) trm)
+    f i (Fix t1) = Fix (f i t1)
 
 {-
 TODO: Update Substition Rules for all new terms
@@ -123,6 +124,7 @@ subst j s t = f 0 s t
         f c s' (Tag tag t1 ty) = Tag tag (f c s' t1) ty
         f c s' (VariantCase t1 cases) = let cases' = ((fmap . fmap) (f (c + 1) (shift c s')) cases)
                                         in VariantCase (f c s' t1) cases'
+        f c s' (Fix t1) = Fix (f c s' t1)
 
 substTop :: Term -> Term -> Term
 substTop s t = shift (-1) (subst 0 (shift 1 s) t)
@@ -179,6 +181,8 @@ singleEval ctx t =
           Just (_,_, term) -> pure $ substTop t1' term
           Nothing -> Nothing
         _ -> Nothing
+    (Fix t1) | not (isVal ctx t1) -> singleEval ctx t1 >>= pure . Fix
+    (Fix (Abs _ _ t2)) -> pure $ substTop t t2
     _ -> Nothing
 
 -- Multistep Evaluation Function

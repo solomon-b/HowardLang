@@ -107,4 +107,5 @@ pretty t = runReader (f t) []
       t1' <- f t1
       patterns <- traverse (\(tag, bndr, t') -> local (const (tag:ctx)) (f t') >>= \tC -> pure $ tag ++ " " ++ bndr ++ " => " ++ tC) cases
       pure $ "variantCase " ++ t1' ++ " of " ++ show patterns
+    f (Fix t1) = pure $ "Fix (" ++ pretty t1 ++ ")"
 

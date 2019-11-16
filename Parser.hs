@@ -4,6 +4,7 @@ import Control.Applicative hiding (some, many)
 import Control.Monad.Reader
 
 import Data.Functor.Identity
+import Data.Foldable
 import Data.List
 
 import Text.Megaparsec
@@ -16,8 +17,6 @@ import TypedLambdaCalcInitial.Types
 ----- BNF Grammer -----
 -----------------------
 {-
-TODO: Figure out how to represent parsing `INTEGER` into peano numbers.
-
 ALPHA = "A".."Z" | "a".."z";
 DIGIT = "0".."9";
 INTEGER = DIGIT {DIGIT};
@@ -42,9 +41,12 @@ INL = "inl" TERM TYPE;
 SUMCASE = "sumCase" TERM "of" "(" "inl" VAR ")" "=>" TERM "|" "(" "inr" VAR ")" "=>" TERM;
 TAG = "tag" VAR TERM "as" TYPE;
 VARIANTCASE = "variantCase" TERM "of" VAR VAR "=>" TERM { "|" VAR VAR "=>" TERM };
+FIX = fix TERM
+LET = "let" VAR {"(" VAR ":" "TYPE" ")"} "=" TERM "in" TERM
+LETREC = "letrec" VAR "=" TERM "in" TERM
 
 TYPE = "Unit" | "Bool" | "Nat" | TYPE "->" "TYPE" | TYPE "x" TYPE | "(" TYPE { "," TYPE } ")" | "{" TYPE { "," TYPE } "}" | Sum Type Type;
-TERM = GROUP | VAR | S | Z | BOOL | APP | ABS | CASE | IF | PAIR | FST | SND | TUPLE | PROJ | RECORD | INR | INL | SUMCASE;
+TERM = GROUP | VAR | S | Z | BOOL | APP | ABS | CASE | IF | PAIR | FST | SND | TUPLE | PROJ | RECORD | INR | INL | SUMCASE | FIX | LET | LETREC;
 -}
 
 
@@ -80,7 +82,7 @@ pValues :: Parser Term
 pValues = pTuple <|> pRecord <|> pPair <|> pUnit <|> pBool <|> pNat <|> pPeano <|> pVar
 
 pStmts :: Parser Term
-pStmts = pGet <|> pVariantCase <|> pTag <|> pSumCase <|> pInR <|> pInL <|> pCase <|> pAbs <|> pLet <|> pAs <|> pFst <|> pSnd
+pStmts = pLetRec <|> pFix <|> pGet <|> pVariantCase <|> pTag <|> pSumCase <|> pInR <|> pInL <|> pCase <|> pAbs <|> pLet <|> pAs <|> pFst <|> pSnd
 
 pTerm :: Parser Term
 pTerm = foldl1 App <$> (  pIf
@@ -181,6 +183,7 @@ rws = [ "if"
       , "Sum"
       , "sumCase"
       , "variantCase"
+      , "fix"
       ]
 
 identifier :: Parser String
@@ -351,15 +354,30 @@ pAs = parens $ do
   ty <- parseType
   pure $ As t1 ty
 
+-- TODO: Detect recursive call to `var` in `t1`
 pLet :: Parser Term
 pLet = do
   rword "let"
   var <- identifier
+  params <- optional pLetParams
   rword "="
-  t1 <- pTerm
+  t1 <- genCurriedAbs params
   rword "in"
   t2 <- bindLocalVar var pTerm
   pure $ Let var t1 t2
+
+pLetParams :: Parser [(Varname, Type)]
+pLetParams = some . parens $ do
+  var <- identifier
+  colon
+  ty <- parseType
+  pure (var, ty)
+
+genCurriedAbs :: Maybe [(Varname, Type)] -> Parser Term
+genCurriedAbs Nothing = pTerm
+genCurriedAbs (Just xs) = ask >>= \ctx ->
+    let bindings = foldl (flip updateEnv) ctx $ fst <$> xs
+    in foldr (\(var, ty) t -> Abs var ty <$> t) (local (const bindings) pTerm) xs
 
 pFst :: Parser Term
 pFst = do
@@ -444,6 +462,22 @@ pVariantPattern = do
   phatArrow
   t <- bindLocalVar tagBinder pTerm
   pure (tagVar, tagBinder, t)
+
+pFix :: Parser Term
+pFix = do
+  rword "fix"
+  t <- pTerm
+  pure $ Fix t
+
+pLetRec :: Parser Term
+pLetRec = do
+  rword "letrec"
+  var <- identifier
+  rword "="
+  t1 <- Fix <$> pTerm
+  rword "in"
+  t2 <- bindLocalVar var pTerm
+  pure $ Let var t1 t2
 
 -- TODO: Figure out how to prevent infinite recursion if I remove the reserved word.
 pGet :: Parser Term

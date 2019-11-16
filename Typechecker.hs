@@ -131,13 +131,16 @@ typecheck (SumCase t tL vL tR vR) = typecheck t >>= \case
     then pure tyR
     else throwTypeError tL tyR tyL
   ty -> throwTypeError' $ "Expected a Sum Type but got: " ++ show ty
-typecheck (Tag tag t1 ty) = typecheck t1 >>= \ty1 ->
+typecheck t@(Tag tag t1 ty) = typecheck t1 >>= \ty1 ->
   case ty of
     VariantT tys ->
       case lookup tag tys of
         Just ty' | ty' == ty1 -> pure ty
-        _ -> throwTypeError t1 ty1 ty -- TODO: Improve this error, it does not reference the sum type.
-    _ -> throwTypeError t1 ty1 ty
+        _ -> throwTypeError t ty1 ty -- TODO: Improve this error, it does not reference the sum type.
+    _ -> throwTypeError t ty1 ty
+typecheck (Fix t) = typecheck t >>= \case
+  (FuncT ty1 ty2) -> if ty1 == ty2 then pure ty2 else throwTypeError t ty2 ty1
+  ty  -> throwTypeError' $ "Type Error: " ++ show ty ++ " is not a function type"
 
 
 typecheck (VariantCase t1 cases) = typecheck t1 >>= \case

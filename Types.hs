@@ -41,6 +41,7 @@ data Term
   | SumCase Term Term Binder Term Binder
   | Tag Tag Term Type
   | VariantCase Term [(Tag, Binder, Term)] -- [(binder, tag)]
+  | Fix Term
   deriving (Show, Eq)
 
 
