@@ -379,6 +379,18 @@ parseAbsWrappedTerm (Just xs) = ask >>= \ctx ->
     let bindings = foldl (flip updateEnv) ctx $ fst <$> xs
     in foldr (\(var, ty) t -> Abs var ty <$> t) (local (const bindings) pTerm) xs
 
+-- TODO: Add sugar to add `rec` param automagically
+pLetRec :: Parser Term
+pLetRec = do
+  rword "letrec"
+  var <- identifier
+  params <- optional pLetParams
+  rword "="
+  t1 <- parseAbsWrappedTerm params
+  rword "in"
+  t2 <- bindLocalVar var pTerm
+  pure $ Let var (Fix t1) t2
+
 pFst :: Parser Term
 pFst = do
   rword "fst"
@@ -463,21 +475,13 @@ pVariantPattern = do
   t <- bindLocalVar tagBinder pTerm
   pure (tagVar, tagBinder, t)
 
+-- λ> (fix (\rec:Nat->Nat->Nat.\x:Nat.\y:Nat.case x of Z => y | (S z) => rec z (S y))) 2 2
+-- S (S (S (S Z)))
 pFix :: Parser Term
 pFix = do
   rword "fix"
   t <- pTerm
   pure $ Fix t
-
-pLetRec :: Parser Term
-pLetRec = do
-  rword "letrec"
-  var <- identifier
-  rword "="
-  t1 <- Fix <$> pTerm
-  rword "in"
-  t2 <- bindLocalVar var pTerm
-  pure $ Let var t1 t2
 
 -- TODO: Figure out how to prevent infinite recursion if I remove the reserved word.
 pGet :: Parser Term
