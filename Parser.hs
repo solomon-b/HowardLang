@@ -251,8 +251,10 @@ pVariantT = do
   where
     p = do
       tag <- constructor
-      ty <- parseType
-      pure (tag, ty)
+      isEnum <- optional $ lookAhead pipe
+      case isEnum of
+        Nothing -> parseType >>= \ty -> pure (tag, ty)
+        Just _ -> pure (tag, UnitT)
 
 parseType :: Parser Type
 parseType = try pArrow <|> pVariantT <|> pSumT <|> pPairT <|> pBoolT <|> pNatT
@@ -453,10 +455,17 @@ pTag :: Parser Term
 pTag = do
   rword "tag"
   tag <- constructor
-  term <- pTerm
-  rword "as"
-  ty <- parensOpt $ parseType
-  pure $ Tag tag term ty
+  isEnum <- optional $ lookAhead (rword "as")
+  case isEnum of
+    Just _ -> do
+      rword "as"
+      ty <- parensOpt $ parseType
+      pure $ Tag tag Unit ty
+    Nothing -> do
+      term <- pTerm
+      rword "as"
+      ty <- parensOpt $ parseType
+      pure $ Tag tag term ty
 
 pVariantCase :: Parser Term
 pVariantCase = do
@@ -466,14 +475,19 @@ pVariantCase = do
   pats <- pVariantPattern `sepBy1` pipe
   pure $ VariantCase t1 pats
 
-pVariantPattern :: Parser (Tag, Binder, Term)
+pVariantPattern :: Parser (Tag, Maybe Binder, Term)
 pVariantPattern = do
   tagVar <- constructor
-  equal
-  tagBinder <- identifier
-  phatArrow
-  t <- bindLocalVar tagBinder pTerm
-  pure (tagVar, tagBinder, t)
+  isEnum <- optional phatArrow
+  case isEnum of
+    Just _ -> pTerm >>= \t -> pure (tagVar, Nothing, t)
+    --Just "_" -> pTerm >>= \t -> pure (tagVar, Nothing, t)
+    Nothing -> do
+      equal
+      tagBinder <- identifier
+      phatArrow
+      t <- pTerm
+      pure (tagVar, Just tagBinder, t)
 
 -- λ> (fix (\rec:Nat->Nat->Nat.\x:Nat.\y:Nat.case x of Z => y | (S z) => rec z (S y))) 2 2
 -- S (S (S (S Z)))

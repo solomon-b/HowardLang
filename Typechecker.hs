@@ -5,6 +5,7 @@ import Control.Monad.Identity
 import Control.Monad.Reader
 
 import Data.List
+import Data.Maybe (mapMaybe)
 
 import TypedLambdaCalcInitial.Types
 import TypedLambdaCalcInitial.PrettyPrinter
@@ -43,6 +44,16 @@ natToInt _ = throwTypeError' $ "Type Error: Excepted Nat"
 
 bindLocalVar :: (MonadReader Context m, MonadError Err m) => Varname -> Type -> Term -> m Type
 bindLocalVar var typ term = local ((:) (var, typ)) (typecheck term)
+
+bindLocalTags :: (MonadError Err m , MonadReader Context m) =>
+  [(Tag, Type)] -> (Tag, Binder, Term) -> m Type
+bindLocalTags ty1 (tag, bndr, tC) = case lookup tag ty1 of
+  Just tyC -> bindLocalVar bndr tyC tC
+  Nothing -> throwTypeError' $ "Expected type: " ++ show (VariantT ty1)
+
+sequencePattern :: (Tag, Maybe Binder, Term) -> Maybe (Tag, Binder, Term)
+sequencePattern (tag, Just bndr, trm) = Just (tag, bndr, trm)
+sequencePattern (_, Nothing, _) = Nothing
 
 typecheck ::
   (MonadError Err m , MonadReader Context m) => Term -> m Type
@@ -141,21 +152,14 @@ typecheck t@(Tag tag t1 ty) = typecheck t1 >>= \ty1 ->
 typecheck (Fix t) = typecheck t >>= \case
   (FuncT ty1 ty2) -> if ty1 == ty2 then pure ty2 else throwTypeError t ty2 ty1
   ty  -> throwTypeError' $ "Type Error: " ++ show ty ++ " is not a function type"
-
-
 typecheck (VariantCase t1 cases) = typecheck t1 >>= \case
-  (VariantT cases') -> do
-    types <- traverse (bindLocalTags cases') cases
+  (VariantT casesT) -> do
+    let cases' = mapMaybe sequencePattern cases
+    types <- traverse (bindLocalTags casesT) cases'
     if allEqual types
     then pure $ types !! 0
     else throwTypeError' "Type mismatch between cases"
   ty -> throwTypeError' $ "Expected a Variant Type but got: " ++ show ty
-
-bindLocalTags :: (MonadError Err m , MonadReader Context m) =>
-  [(Tag, Type)] -> (Tag, Binder, Term) -> m Type
-bindLocalTags ty1 (tag, bndr, tC) = case lookup tag ty1 of
-  Just tyC -> bindLocalVar bndr tyC tC
-  Nothing -> throwTypeError' $ "Expected type: " ++ show (VariantT ty1)
 
 
 ------------------------------------------------------------

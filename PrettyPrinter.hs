@@ -101,11 +101,16 @@ pretty t = runReader (f t) []
       pure $ "sumCase " ++ t1' ++ " of " ++
              "inl " ++ vL ++ " => " ++ tL' ++ " | "  ++
              "inr " ++ vR ++ " => " ++ tR'
+    f (Tag tag Unit _) = pure tag
     f (Tag tag t1 _) = pure $ tag ++ " " ++ pretty t1
     f (VariantCase t1 cases) = do
       ctx <- ask
       t1' <- f t1
-      patterns <- traverse (\(tag, bndr, t') -> local (const (tag:ctx)) (f t') >>= \tC -> pure $ tag ++ " " ++ bndr ++ " => " ++ tC) cases
+      patterns <- traverse (\(tag, bndr, t') -> do
+        tC <- local (const (tag:ctx)) (f t')
+        let bndr' = maybe mempty ( (:) ' ' . show) bndr
+        pure $ tag ++ bndr' ++ " => " ++ tC
+        ) cases
       pure $ "variantCase " ++ t1' ++ " of " ++ show patterns
     f (Fix t1) = pure $ "Fix (" ++ pretty t1 ++ ")"
 

@@ -40,7 +40,7 @@ data Term
   | InR Term Type
   | SumCase Term Term Binder Term Binder
   | Tag Tag Term Type
-  | VariantCase Term [(Tag, Binder, Term)] -- [(binder, tag)]
+  | VariantCase Term [(Tag, Maybe Binder, Term)] -- [(binder, tag)]
   | Fix Term
   deriving (Show, Eq)
 
@@ -102,6 +102,7 @@ showVariant :: Type -> String
 showVariant (VariantT tys) = unwords . intersperse "|" $ f <$> tys
   where
     f :: (Varname, Type) -> String
+    f (var, UnitT) = var
     f (var, ty) = var ++ " " ++ show ty
 {-
 instance Pretty Type where

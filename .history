@@ -1,3 +1,28 @@
+:t tag Nothing as (Nothing | Just Nat)
+tag Nothing as (Nothing | Just Nat)
+tag Nothing as (Nothing | Just Nat)
+tag Nothing (Nothing | Just Nat)
+(\val:Nothing | Just Nat.variantCase val of Nothing => True | Just=x => False) (tag Nothing as (Nothing | Just Nat))
+(\val:Nothing | Just Nat.variantCase val of Nothing => True | Just=x => False) (tag Nothing Unit as (Nothing | Just Nat))
+(\val:Nothing | Just Nat.variantCase val of Nothing => True | Just=x => False) (tag Nothing Unit as (Nothing | Just Nat))
+(\val:Nothing | Just Nat.variantCase val of Nothing => True | Just=x => False) (Notag thing Unit as (Nothing | Just Nat))
+(\val:Nothing | Just Nat.variantCase val of Nothing => True | Just=x => False) (Nothing Unit as (Nothing | Just Nat))
+(\val:Nothing | Just Nat.variantCase val of Nothing => True | Just=x => False)
+(\val:Nothing | Just Nat.variantCase val of Nothing => True | Just=x => False)
+(\val:Nothing | Just Nat.variantCase val of Nothing => True | Just=x => False)
+(\val:Nothing | Just Nat.variantCase val of Nothing => True | Just x => False)
+(\val:Nothing | Just Nat.variantCase val of Nothing => True)
+(\val:Nothing | Just Nat.variantCase val of Nothing => True)
+(\val:Nothing | Just Nat.variantCase val of Nothing => True)
+(\val:Nothing | Just Nat.variantCase val of Nothing=z => True)
+(\val:Nothing | Just Nat.variantCase val of Nothing=z => True | Just=x => False)
+(\val:Nothing | Just Nat.variantCase val of Nothing => True | Just=x => False)
+(\val:Nothing | Just Nat.variantCase val of Nothing => True | Just=x => False)
+(\val:Nothing | Just Nat.variantCase val of Nothing=z => True | Just=x => False)
+(\val:Nothing | Just Nat.variantCase val of Nothing=z => True | Just=x => False)
+(\val:Nothing | Just Nat.variantCase val of Nothing => True | Just=x => False)
+(\val:Nothing | Just Nat.val)
+(\val:Nothing | Just Nat).val)
 tag Left true as (Left Bool | Right Nat)
 :t tag Left true as (Left Bool | Right Nat)
 (\f:Nat -> Nat.f 0) (\n:Nat.S n)
@@ -73,28 +98,3 @@ tag Right (1, True) as (Left Unit | Right (Nat, Bool))
 tag Right (1, True) as (Left Unit | Right (Nat, Bool)
 (\val: Left Unit | Right Nat.variantCase val of Left=x => False | Right=n => True) (tag Right 1 as (Left Unit | Right Nat))
 (\val: Left Unit | Right Nat.variantCase val of Left=x => False | Right=n => True) (tag Left Unit as (Left Unit | Right Nat))
-:t (\val: Left Unit | Right Nat.variantCase val of Left=x => False | Right=n => True) (tag Left Unit as (Left Unit | Right Nat))
-:t (\val: Left Unit | Right Nat.variantCase val of Left=x => False | Right=n => True)
-:t (\val: Left Unit | Right Nat.variantCase val of Left x => False | Right n => True)
-:t (\val: Left Unit | Right Nat.caseVarient val of Left x => False | Right n => True)
-:t (\val: Left Unit | Right Nat.varientCase val of Left x => False | Right n => True)
-:t (\val: Left Unit | Right Nat.case val of Left x => False | Right n => True)
-:t (\val: Left Unit | Right Nat.case val of Left x => False | Right n => True)
-:t (\val: Left Unit | Right Nat.val)
-(\val: Left Unit | Right Nat.val)
-:t tag Right 0 as Left Nat | Right Bool
-tag Right 0 as Left Nat | Right Bool
-tag Right True as Left Nat | Right Bool
-tag Left 0 as Left Nat | Right Bool
-:t tag Left 0 as Left Nat | Right Bool
-tag Left 0 as Left Nat | Right Bool
-tag Left 0 as Left Nat | Right Bool
-(Left 0 as Left Nat | Right Bool)
-Left 0 as (Left Nat | Right Bool)
-Left 0 as (Left Nat | Right Bool)
-{foo=True, foo=1}
-(get {foo=True, foo=1}
-(get {foo=True, bar=1, baz=(\n:Nat.S n)}[baz]) 2
-(get {foo=True, bar=1, baz=(\n:Nat.S n)}[baz]) 1
-(get {foo=True, bar=1, baz=(\n:Nat.S n)}[baz]) 0
-get {foo=True, bar=1, baz=(\n:Nat.S n)}[baz]
