@@ -325,7 +325,7 @@ pAbs = do
   lambda
   var <- identifier
   colon
-  ty <- parseType
+  ty <- parensOpt parseType
   dot
   term <- bindLocalVar var pTerm
   pure (Abs var ty term)
@@ -486,7 +486,7 @@ pVariantPattern = do
       equal
       tagBinder <- identifier
       phatArrow
-      t <- pTerm
+      t <- bindLocalVar tagBinder pTerm
       pure (tagVar, Just tagBinder, t)
 
 -- λ> (fix (\rec:Nat->Nat->Nat.\x:Nat.\y:Nat.case x of Z => y | (S z) => rec z (S y))) 2 2
