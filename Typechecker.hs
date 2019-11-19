@@ -22,8 +22,12 @@ type TypecheckM a = TypecheckT Identity a
 
 runTypecheckT :: Context -> TypecheckT m a -> m (Either Err a)
 runTypecheckT gamma = flip runReaderT gamma . runExceptT . unTypecheckT
+
 runTypecheckM :: Context -> TypecheckT Identity a -> Either Err a
 runTypecheckM gamma = runIdentity . runTypecheckT gamma
+
+typeTest :: Term -> Either Err Type
+typeTest = runTypecheckM [] . typecheck
 
 getIndexFromContext :: Context -> Varname -> Maybe DeBruijn
 getIndexFromContext ctx var = find (\el -> var == fst el) ctx >>= flip elemIndex ctx
@@ -160,6 +164,51 @@ typecheck (VariantCase t1 cases) = typecheck t1 >>= \case
     then pure $ types !! 0
     else throwTypeError' "Type mismatch between cases"
   ty -> throwTypeError' $ "Expected a Variant Type but got: " ++ show ty
+typecheck (Unroll u@(FixT _ t1) term) = do
+  let u' = typeSubstTop u t1
+  ty1 <- typecheck term
+  if (ty1 == u')
+    then pure u
+    else throwTypeError' "Type Error: Temp Error bad Unroll"
+typecheck (Roll u@(FixT _ t1) term) = do
+  let u' = typeSubstTop u t1
+  ty1 <- typecheck term
+  if (ty1 == u)
+    then pure u'
+    else throwTypeError' "Type Error: Temp Error bad Roll"
+
+
+-------------------------
+--- Type Substitution ---
+-------------------------
+
+typeShift :: DeBruijn -> Type -> Type
+typeShift target t = f 0 t
+  where
+    f :: DeBruijn -> Type -> Type
+    f i (PairT ty1 ty2) = PairT    (f i ty1) (f i ty2)
+    f i (SumT ty1 ty2)  = SumT     (f i ty1) (f i ty2)
+    f i (FuncT ty1 ty2) = FuncT    (f i ty1) (f i ty2)
+    f i (TupleT tys)    = TupleT   (f i <$> tys)
+    f i (RecordT tys)   = RecordT  (f i <$> tys)
+    f i (VariantT tys)  = VariantT ((fmap . fmap) (f i) tys)
+    f i (VarT j)        = if j >= i then (VarT $ j + target) else VarT j
+    f i (FixT b t1)     = FixT b (f (i + 1) t1)
+    f _ t1              = t1
+
+typeSubst :: DeBruijn -> Type -> Type -> Type
+typeSubst a ty (PairT ty1 ty2) = PairT (typeSubst a ty ty1) (typeSubst a ty ty2)
+typeSubst a ty (SumT ty1 ty2)  = SumT (typeSubst a ty ty1) (typeSubst a ty ty2)
+typeSubst a ty (FuncT ty1 ty2) = FuncT (typeSubst a ty ty1) (typeSubst a ty ty2) -- NOTE: Suspect?
+typeSubst a ty (TupleT tys)    = TupleT $ (typeSubst a ty) <$> tys
+typeSubst a ty (RecordT tys)   = RecordT $ (typeSubst a ty) <$> tys
+typeSubst a ty (VariantT tys)  = VariantT $ (fmap . fmap) (typeSubst a ty) tys
+typeSubst a ty (VarT b)        = if a == b then ty else (VarT b)
+typeSubst a ty (FixT b t)      = FixT b (typeSubst (a+1) ty t)
+typeSubst _ _ t = t
+
+typeSubstTop :: Type -> Type -> Type
+typeSubstTop s t = typeShift (-1) (typeSubst 0 (typeShift 1 s) t)
 
 
 ------------------------------------------------------------

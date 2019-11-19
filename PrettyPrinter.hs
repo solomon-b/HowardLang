@@ -112,5 +112,8 @@ pretty t = runReader (f t) []
         pure $ tag ++ bndr' ++ " => " ++ tC
         ) cases
       pure $ "variantCase " ++ t1' ++ " of " ++ show patterns
+    -- TODO: Consider and define a more appropriate pretty printer:
     f (Fix t1) = pure $ "Fix (" ++ pretty t1 ++ ")"
+    f (Roll _ t1) = pure $ "Roll (" ++ pretty t1 ++ ")"
+    f (Unroll _ t1) = pure $ "Unroll (" ++ pretty t1 ++ ")"
 

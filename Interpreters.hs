@@ -183,6 +183,9 @@ singleEval ctx t =
         _ -> Nothing
     (Fix t1) | not (isVal ctx t1) -> singleEval ctx t1 >>= pure . Fix
     (Fix (Abs _ _ t2)) -> pure $ substTop t t2
+    (Roll ty t1) | not $ isVal ctx t1 -> singleEval ctx t1 >>= pure . (Roll ty)
+    (Unroll ty t1) | not $ isVal ctx t1 -> singleEval ctx t1 >>= pure . (Unroll ty)
+    (Unroll _ (Roll _ t1)) -> singleEval ctx t1 -- NOTE: Suspect?
     _ -> Nothing
 
 -- Multistep Evaluation Function

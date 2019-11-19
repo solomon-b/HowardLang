@@ -1,3 +1,53 @@
+(\n:Nat.let f (m : Nat) = S m in f n) 0
+:t (\n:Nat.let f (m : Nat) = S m in f n)
+:t (\p:Bool.\n:Nat.n)
+:t (\p:Bool.p)
+(\p:Bool.p)
+:t (\n:Nat.let f (m : Nat) = S m in f n)
+:t (\n:Nat.let f (m : Nat) = S m in f n))
+:t (\p:Bool.\n:Nat.n)
+:t (\p:Bool.p)
+(\p:Bool.p)
+:t(\p:Bool.p)
+(\p:Bool.p)
+:t (\val:Left Bool | Right Nat.variantCase val of Left=p => p | Right=n => True)
+(\val:Left Bool | Right Nat.variantCase val of Left=p => p | Right=n => True)
+:t (\val:Left Bool | Right Nat.variantCase val of Left=p => p | Right=n => True)
+:t (\val:Left Bool | Right Nat.variantCase val of Left=p => p | Right=n => True)
+(\val:(Left Bool | Right Nat).val)
+(\val:(Left Bool | Just Nat).val)
+(\val:Left Bool | Just Nat.val)
+(\val:Nothing | Just Nat.val)
+:t (\val:Left Bool | Right Nat.variantCase val of Left=p => 0 | Right=n => n)
+:t (\val:(Left Bool | Right Nat).variantCase val of Left=p => 0 | Right=n => n)
+(\val:(Left Bool | Right Nat).variantCase val of Left=p => 0 | Right=n => n)
+(\val:Nothing | Just Nat.variantCase val of Nothing => 0 | Just=n => n)
+(\val:Nothing | Just Nat.val)
+(\val:Nothing | Just Nat.val))
+(\val:(Nothing | Just Nat).val))
+(\val:(Nothing | Just Nat).variantCase val of Nothing => 0 | Just=n => n)
+(\val:(Nothing | Just Nat).variantCase val of Nothing => 0 | Just=n => S n)
+:t tag Just 2 as (Nothing | Just Nat)
+tag Just 2 as (Nothing | Just Nat)
+tag Nothing as (Nothing | Just Nat)
+:t tag Left True as (Left Bool | Right Nat)
+tag Left True as (Left Bool | Right Nat)
+get {foo=True, bar=1}[foo]
+:t {foo=True, bar=1}
+{foo=True, bar=1}
+:t (True, 1)
+(True, 1)
+:t Unit
+:t 2
+:t True
+Unit
+3
+2
+1
+False
+True
+(\val:Nothing | Just Nat.variantCase val of Nothing => True | Just=x => False) (tag Nothing as (Nothing | Just Nat))
+tag Nothing as (Nothing | Just Nat)
 :t tag Nothing as (Nothing | Just Nat)
 tag Nothing as (Nothing | Just Nat)
 tag Nothing as (Nothing | Just Nat)
@@ -48,53 +98,3 @@ get {foo=1, baz=1, bam=True}[foo]
 {foo=1, baz=1, bam=True]
 {foo=1, baz=1, bam=True]
 :t (True, 0, False, 0)
-:t (True, 0, False)
-:t (True, 0)
-(True, 0)
-:t 4
-4
-3
-2
-1
-0
-:t True
-False
-True
-(tag Left Unit as (Left Nat | Right Bool))
-(tag Right True as (Left Nat | Right Bool))
-(tag Right True as (Left Nat | Right Bool))
-(tag Right 0 as (Left Nat | Right Bool))
-(tag Left 0 as (Left Nat | Right Bool))
-(tag Left Nat as (Left Nat | Right Bool))
-(tag Left Unit as (Left Nat | Right Bool))
-(tag Left Unit as (Left Nat | Right Bool))
-(tag Left Unit as (Left Nat | Right Bool))
-(tag Left Unit as (Left Nat | Right Bool))
-(tag Let Unit as (Left Nat | Right Bool))
-(tag Right Unit as (Left Nat | Right Bool))
-(tag Right 0 as (Left Nat | Right Bool))
-(tag Right (1, True) as (Left Unit | Right (Nat, Bool)))
-{foo=1, foo=True}
-(tag Right 0 as (Left Nat | Right Bool))
-<1, <2, <3, Unit>>>
-<1, <2, <3, Nil>>>
-<1, <2, <3, 4>>>
-(1,2,3,True)
-(1,2,3,4)
-<1, 2, 3>
-:t <1, 2>
-<1, 2>
-<1, 2
-(True as Unit)
-(True as Bool)
-True
-(tag Right 0 as (Left Nat | Right Bool))
-(tag Right 0 as (Left Nat | Right Bool)
-(tag Right (1, True) as (Left Unit | Right (Nat, Bool)))
-(tag Right (1, True) as (Left Unit | Right (Nat, Bool)))
-:t (1, True)
-tag Right (1, True) as (Left Unit | Right (Nat Bool))
-tag Right (1, True) as (Left Unit | Right (Nat, Bool))
-tag Right (1, True) as (Left Unit | Right (Nat, Bool)
-(\val: Left Unit | Right Nat.variantCase val of Left=x => False | Right=n => True) (tag Right 1 as (Left Unit | Right Nat))
-(\val: Left Unit | Right Nat.variantCase val of Left=x => False | Right=n => True) (tag Left Unit as (Left Unit | Right Nat))

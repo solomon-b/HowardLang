@@ -42,6 +42,8 @@ data Term
   | Tag Tag Term Type
   | VariantCase Term [(Tag, Maybe Binder, Term)] -- [(binder, tag)]
   | Fix Term
+  | Roll Type Term
+  | Unroll Type Term
   deriving (Show, Eq)
 
 
@@ -81,6 +83,8 @@ data Type
   | RecordT [Type]
   | SumT Type Type
   | VariantT [(Tag, Type)]
+  | FixT Varname Type
+  | VarT DeBruijn
   deriving (Data, Eq)
 
 instance Show Type where
@@ -97,6 +101,9 @@ instance Show Type where
   show (RecordT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ show <$> ts in "{" ++ tys ++ "}"
   show (SumT left right) = "Sum " ++ show left ++ " " ++ show right
   show v@(VariantT _) = showVariant v
+  -- TODO: Write a proper show instance for FixT
+  show (FixT var ty) = "FixT " ++ var ++ " " ++ show ty
+  show (VarT i) = "VarT " ++ show i
 
 showVariant :: Type -> String
 showVariant (VariantT tys) = unwords . intersperse "|" $ f <$> tys
@@ -133,7 +140,6 @@ data TypeErr = TypeError String deriving (Show, Eq)
 data Err = P ParseErr | T TypeErr deriving (Show, Eq)
 
 instance Exception Err
-
 
 --------------------
 --- Misc Helpers ---
@@ -175,4 +181,5 @@ allEqual (x:xs) = all (== x) xs
 -- TODO: Fix this bug:
 -- λ> let x = {foo=inr True : Sum Nat Bool} in (get x[foo])
 -- typedLCI: Prelude.!!: index too large
+
 
