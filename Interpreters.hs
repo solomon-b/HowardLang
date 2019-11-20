@@ -73,6 +73,8 @@ shift target t = f 0 t
     f i (Tag tag t1 ty) = Tag tag (f i t1) ty
     f i (VariantCase t1 cases) = VariantCase (f i t1) $ cases >>= \(tag, bnd, trm) -> pure (tag, bnd, f (i + 1) trm)
     f i (Fix t1) = Fix (f i t1)
+    f i (Roll ty t1) = Roll ty (f i t1)
+    f i (Unroll ty t1) = Unroll ty (f i t1)
 
 {-
 TODO: Update Substition Rules for all new terms
@@ -125,6 +127,8 @@ subst j s t = f 0 s t
         f c s' (VariantCase t1 cases) = let cases' = ((fmap . fmap) (f (c + 1) (shift c s')) cases)
                                         in VariantCase (f c s' t1) cases'
         f c s' (Fix t1) = Fix (f c s' t1)
+        f c s' (Roll ty t1) = Roll ty (f c s' t1)
+        f c s' (Unroll ty t1) = Unroll ty (f c s' t1)
 
 substTop :: Term -> Term -> Term
 substTop s t = shift (-1) (subst 0 (shift 1 s) t)
@@ -185,7 +189,7 @@ singleEval ctx t =
     (Fix (Abs _ _ t2)) -> pure $ substTop t t2
     (Roll ty t1) | not $ isVal ctx t1 -> singleEval ctx t1 >>= pure . (Roll ty)
     (Unroll ty t1) | not $ isVal ctx t1 -> singleEval ctx t1 >>= pure . (Unroll ty)
-    (Unroll _ (Roll _ t1)) -> singleEval ctx t1 -- NOTE: Suspect?
+    (Unroll _ (Roll _ v1)) | isVal ctx v1 -> pure v1
     _ -> Nothing
 
 -- Multistep Evaluation Function
@@ -228,10 +232,14 @@ bigStepEval ctx (SumCase t1 tL _ tR _) =
      x -> error $ show x -- NOTE: Typechecker should make this state impossible
 bigStepEval ctx (VariantCase t1 cases) =
   let t1' = bigStepEval ctx t1
-  in undefined
+  in undefined -- TODO: Implement bigstep variantcase eval
 bigStepEval _ t@(InL _ _) = t
 bigStepEval _ t@(InR _ _) = t
 bigStepEval _ t@(Tag _ _ _) = t
+bigStepEval ctx t@(Fix t1) = bigStepEval ctx $ substTop t t1
+bigStepEval ctx (Roll ty t1) = Roll ty $ bigStepEval ctx t1
+bigStepEval ctx (Unroll _ (Roll _ t1)) = bigStepEval ctx t1
+bigStepEval ctx (Unroll ty t1) = Unroll ty $ bigStepEval ctx t1
 bigStepEval _ Unit = Unit
 bigStepEval _ Tru = Tru
 bigStepEval _ Fls = Fls

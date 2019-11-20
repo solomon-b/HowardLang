@@ -1,3 +1,18 @@
+inl Unit : Sum Unit Nat
+inl Unit : (Sum Unit Nat)
+inl Unit as (Sum Unit Nat)
+tag Nothing as (Nothing | Just Nat)
+tag Just 1 as (Nothing | Just Nat)
+tag Just 1 as (Nothing | Just Int)
+tag Just 1 as (Nothing | Just Nat)
+tag Left True as (Left Bool | Right Nat)
+:t (\val:Left Bool | Right Nat.variantCase val of Left=p => p | Right=n => True)
+:t tag Just 1 as (Nothing | Just Int)
+False
+True
+true
+tag Just 1 as (Nothing | Just Int)
+tag Nothing as (Nothing | Just Int)
 (\n:Nat.let f (m : Nat) = S m in f n) 0
 :t (\n:Nat.let f (m : Nat) = S m in f n)
 :t (\p:Bool.\n:Nat.n)
@@ -83,18 +98,3 @@ tag Left true as (Left Bool | Right Nat)
 (\p:Bool.if: p then: 1 else: 0) True
 (\p:Bool.if: p then: 1 else: 0) False
 (\n:Nat.S n) 2
-(\n:Nat.S n) 1
-(\n:Nat.S n) 0
-(\n:Nat.S n)
-let x = {foo=1, bar=False} in get x[foo]
-let x = {foo=1, bar=False} in (get x[foo])
-let x = True in x
-let x True in x
-get {foo=1, baz=1, bam=True}[bam]
-get {foo=1, baz=1, bam=True}[baz]
-get {foo=1, baz=1, bam=True}[foo]
-{foo=1, baz=1, bam=True}
-{foo=1, baz=1, bam=True]
-{foo=1, baz=1, bam=True]
-{foo=1, baz=1, bam=True]
-:t (True, 0, False, 0)

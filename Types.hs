@@ -163,6 +163,7 @@ isVal c (Record ts)  = all (isVal c . snd) ts
 isVal c (InL t _)   = isVal c t
 isVal c (InR t _)   = isVal c t
 isVal c (Tag _ t _) = isVal c t
+isVal c (Roll _ t)  = isVal c t
 -- TODO: Should Lets and Cases be considered values if their terms are fully reduced? I think so?
 isVal _ _           = False
 
@@ -182,4 +183,29 @@ allEqual (x:xs) = all (== x) xs
 -- λ> let x = {foo=inr True : Sum Nat Bool} in (get x[foo])
 -- typedLCI: Prelude.!!: index too large
 
+listT :: Type
+listT = FixT "listT" (SumT UnitT $ PairT NatT $ VarT 0)
 
+nil :: Term
+nil = Roll listT (InL Unit (SumT UnitT $ PairT NatT listT))
+
+cons :: Term
+cons = Abs "x" NatT . Abs "xs" listT .
+       Roll listT $ InR (Pair (Var 1) (Var 0)) (SumT UnitT $ PairT NatT listT)
+
+-- SumCase Term Term Binder Term Binder
+sumTest' :: Term
+sumTest' = SumCase (InR Tru (SumT NatT BoolT)) Z "x" (S Z) "y"
+
+sumTest :: Term
+sumTest = SumCase (Unroll listT $ nil) Z "nil" (Fst $ Var 0) "x"
+
+hd :: Term
+hd = Abs "xs" listT $
+     SumCase (Unroll listT $ Var 0) Z "nil" (Fst $ Var 0) "x"
+
+consTest :: Term
+consTest = App (App cons (S Z)) (App (App cons Z) nil)
+
+hdTest :: Term
+hdTest = App hd consTest

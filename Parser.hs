@@ -47,6 +47,9 @@ LETREC = "letrec" VAR "=" TERM "in" TERM
 
 TYPE = "Unit" | "Bool" | "Nat" | TYPE "->" "TYPE" | TYPE "x" TYPE | "(" TYPE { "," TYPE } ")" | "{" TYPE { "," TYPE } "}" | Sum Type Type;
 TERM = GROUP | VAR | S | Z | BOOL | APP | ABS | CASE | IF | PAIR | FST | SND | TUPLE | PROJ | RECORD | INR | INL | SUMCASE | FIX | LET | LETREC;
+
+
+
 -}
 
 
@@ -255,6 +258,18 @@ pVariantT = do
       case isEnum of
         Nothing -> parseType >>= \ty -> pure (tag, ty)
         Just _ -> pure (tag, UnitT)
+
+-- | Recursive Type signature
+pFixT :: Parser Type
+pFixT = do
+  rword "Mu"
+  var <- identifier
+  ty <- parseType
+
+  pure $ FixT var ty
+
+pVarT :: Parser Type
+pVarT = undefined
 
 parseType :: Parser Type
 parseType = try pArrow <|> pVariantT <|> pSumT <|> pPairT <|> pBoolT <|> pNatT
