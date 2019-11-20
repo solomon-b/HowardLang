@@ -167,15 +167,15 @@ typecheck (VariantCase t1 cases) = typecheck t1 >>= \case
 typecheck (Unroll u@(FixT _ t1) term) = do
   let u' = typeSubstTop u t1
   ty1 <- typecheck term
-  if (ty1 == u')
-    then pure u
+  if (ty1 == u)
+    then pure u'
     else throwTypeError' "Type Error: Temp Error bad Unroll"
 typecheck (Roll u@(FixT _ t1) term) = do
   let u' = typeSubstTop u t1
   ty1 <- typecheck term
-  if (ty1 == u)
-    then pure u'
-    else throwTypeError' "Type Error: Temp Error bad Roll"
+  if (ty1 == u')
+    then pure u
+    else throwTypeError' $ "Type Error: " ++ show u ++ " != " ++ show ty1
 
 
 -------------------------
