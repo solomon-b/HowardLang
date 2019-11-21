@@ -43,7 +43,7 @@ Unit
 Unit
 ```
 #### Sums and Products:
-```haskell
+```ocaml
 λ> (1, True, Unit)
 (S Z , True , Unit)
 
