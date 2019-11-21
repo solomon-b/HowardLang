@@ -3,18 +3,18 @@
 A pure interpreted lambda calculus with Algebraic and Recursive Types.
 
 ### features:
- -[x] Sum and Product types
- -[x] Recursive Types
- -[x] Ascriptions
- -[x] Let bindings
- -[x] Nat and Bool base types
- -[x] A REPL
- -[ ] Type Aliases
- -[ ] Data Type Binding
- -[ ] Polymorphism (System F)
- -[ ] Type Inference
- -[ ] Type Operators (Omega)
- -[ ] Ocaml style module system
+ - [x] Sum and Product types
+ - [x] Recursive Types
+ - [x] Ascriptions
+ - [x] Let bindings
+ - [x] Nat and Bool base types
+ - [x] A REPL
+ - [ ] Type Aliases
+ - [ ] Data Type Binding
+ - [ ] Polymorphism (System F)
+ - [ ] Type Inference
+ - [ ] Type Operators (Omega)
+ - [ ] Ocaml style module system
 
 ### Example Usage:
 #### Base types:
