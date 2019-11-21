@@ -78,7 +78,7 @@ cons = Abs "x" NatT . Abs "xs" ListT .
 ```
 
 #### Functions:
-```
+```ocaml
 λ> (\n:Nat.n)
 (λ n : Nat. n)
 
@@ -105,7 +105,7 @@ S (S (S Z))
 ```
 
 #### Pattern Matching:
-```
+```ml
 λ> :t (\x:(Nothing | Just Nat).variantCase x of Nothing => 0 | Just=y => y)
 Nothing | Just Nat -> Nat
 
