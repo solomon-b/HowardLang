@@ -79,12 +79,37 @@ cons = Abs "x" NatT . Abs "xs" ListT .
 ```
 λ> (\n:Nat.n)
 (λ n : Nat. n)
+
 λ> :t (\n:Nat.n)
 Nat -> Nat
+
 λ> (\n:Nat.n) 1
 S Z
 
 λ> :t (\p:Bool.\n:Nat.n)
 Bool -> (Nat -> Nat)
 
+λ> let f (n : Nat) = S n in f
+(λ n : Nat. S n)
+
+λ> :t let f (n : Nat) = S n in f
+Nat -> Nat
+
+λ> let f (n : Nat) = S n in f 2
+S (S (S Z))
+
+λ> let f (n : Nat) (p : Bool) = S n in f
+(λ n : Nat. (λ p : Bool. S n))
+```
+
+#### Pattern Matching:
+```
+λ> :t (\x:(Nothing | Just Nat).variantCase x of Nothing => 0 | Just=y => y)
+Nothing | Just Nat -> Nat
+
+λ> (\x:(Nothing | Just Nat).variantCase x of Nothing => 0 | Just=y => y) (tag Nothing as (Nothing | Just Nat))
+0
+
+λ> (\x:(Nothing | Just Nat).variantCase x of Nothing => 0 | Just=y => y) (tag Just 2 as (Nothing | Just Nat))
+S (S Z)
 ```
