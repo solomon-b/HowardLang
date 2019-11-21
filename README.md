@@ -12,6 +12,8 @@ A pure interpreted lambda calculus with Algebraic and Recursive Types.
 
 ### TODO:
 - Complete Parser for Recursive Types
+- Overhaul error reporting
+- Overhaul pretty printing
 - Type Aliases
 - Data Type Binding
 - Polymorphism (System F)
