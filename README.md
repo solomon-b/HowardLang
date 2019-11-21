@@ -23,7 +23,7 @@ A pure interpreted lambda calculus with Algebraic and Recursive Types.
 
 ### Example Usage:
 #### Base types:
-```
+```ocaml
 λ> True
 True
 
@@ -43,7 +43,7 @@ Unit
 Unit
 ```
 #### Sums and Products:
-```
+```haskell
 λ> (1, True, Unit)
 (S Z , True , Unit)
 
@@ -65,7 +65,7 @@ Nothing | Just Nat
 
 #### Recursive Types:
 The parser is incomplete but here is the AST for a linked list:
-```
+```haskell
 ListT :: Type
 ListT = FixT "ListT" (VariantT [("Nil", UnitT), ("Cons", TupleT [NatT, VarT 0])])
 
