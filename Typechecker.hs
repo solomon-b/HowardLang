@@ -162,11 +162,11 @@ typecheck (Fix t) = typecheck t >>= \case
 typecheck (VariantCase t1 cases) = typecheck t1 >>= \case
   (VariantT casesT) -> do
     let cases' = mapMaybe sequencePattern cases
-    checkTotal cases casesT
+    --checkTotal cases casesT
     types <- traverse (bindLocalTags casesT) cases'
     if allEqual types
     then pure $ types !! 0
-    else throwTypeError' "Type mismatch between cases"
+    else throwTypeError' $ "Type mismatch between cases: " ++ show types
   ty -> throwTypeError' $ "Expected a Variant Type but got: " ++ show ty
 typecheck (Unroll u@(FixT _ t1) term) = do
   let u' = typeSubstTop u t1

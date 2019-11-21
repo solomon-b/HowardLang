@@ -183,6 +183,9 @@ allEqual (x:xs) = all (== x) xs
 -- λ> let x = {foo=inr True : Sum Nat Bool} in (get x[foo])
 -- typedLCI: Prelude.!!: index too large
 
+---- Recursive Type Testing:
+
+-- Binary Sum
 listT :: Type
 listT = FixT "listT" (SumT UnitT $ PairT NatT $ VarT 0)
 
@@ -194,9 +197,6 @@ cons = Abs "x" NatT . Abs "xs" listT .
        Roll listT $ InR (Pair (Var 1) (Var 0)) (SumT UnitT $ PairT NatT listT)
 
 -- SumCase Term Term Binder Term Binder
-sumTest' :: Term
-sumTest' = SumCase (InR Tru (SumT NatT BoolT)) Z "x" (S Z) "y"
-
 sumTest :: Term
 sumTest = SumCase (Unroll listT $ nil) Z "nil" (Fst $ Var 0) "x"
 
@@ -209,3 +209,29 @@ consTest = App (App cons (S Z)) (App (App cons Z) nil)
 
 hdTest :: Term
 hdTest = App hd consTest
+
+-- Variant Form
+
+listTV :: Type
+listTV = FixT "listTV" (VariantT [("Nil", UnitT), ("Cons", PairT NatT $ VarT 0)])
+
+nilV :: Term
+nilV = Roll listTV (Tag "Nil" Unit (VariantT [("Nil", UnitT), ("Cons", PairT NatT listTV)]))
+
+variant :: Term
+variant = Abs "x" (VariantT [("Nothing", UnitT), ("Just", NatT)]) $
+          VariantCase (Var 0) [("Nothing", Nothing, Z), ("Just", Just "x", Var 0)]
+
+consV :: Term
+consV = Abs "x" NatT . Abs "xs" listTV .
+       Roll listTV $ Tag "Cons" (Pair (Var 1) (Var 0)) (VariantT [("Nil", UnitT), ("Cons", PairT NatT listTV)])
+
+hdV :: Term
+hdV = Abs "xs" listTV $
+      VariantCase (Unroll listTV $ Var 0) [("Nil", Nothing, Z), ("Cons", Just "y", Fst $ Var 0)]
+
+consTestV :: Term
+consTestV = App (App consV (S Z)) (App (App consV Z) nilV)
+
+hdTestV :: Term
+hdTestV = App hdV consTestV
