@@ -1,3 +1,5 @@
+(1,2,3,4)
+tag Nil as (mu. ListNat (Nil | Cons [Nat, ListNat]))
 tag Nil as (mu. ListNat (Nil | Cons [Nat, ListNat]))
 tag Nil as (mu. ListNat (Nil | Cons [Nat, ListNat]))
 tag Nil as (mu. ListNat (Nil | Cons [Nat, ListNat]))
@@ -96,5 +98,3 @@ get {foo=True, bar=1}[foo]
 {foo=True, bar=1}
 :t (True, 1)
 (True, 1)
-:t Unit
-:t 2

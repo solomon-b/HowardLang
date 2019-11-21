@@ -1,12 +1,10 @@
-module TypedLambdaCalcInitial.PrettyPrinter where
+module HowardLang.PrettyPrinter where
 
 import Control.Monad.Reader
 import Data.List (intersperse)
 --import qualified Data.Text.Prettyprint.Doc as P
 
-import TypedLambdaCalcInitial.Types
-
-import Debug.Trace
+import HowardLang.Types
 
 ----------------------
 --- Pretty Printer ---

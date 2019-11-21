@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable #-}
-module TypedLambdaCalcInitial.Types where
+module HowardLang.Types where
 
 import Control.Exception (Exception)
 

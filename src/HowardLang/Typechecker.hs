@@ -1,4 +1,4 @@
-module TypedLambdaCalcInitial.Typechecker where
+module HowardLang.Typechecker where
 
 import Control.Monad.Except
 import Control.Monad.Identity
@@ -7,8 +7,8 @@ import Control.Monad.Reader
 import Data.List
 import Data.Maybe (mapMaybe)
 
-import TypedLambdaCalcInitial.Types
-import TypedLambdaCalcInitial.PrettyPrinter
+import HowardLang.Types
+import HowardLang.PrettyPrinter
 
 --------------------
 --- Type Checker ---

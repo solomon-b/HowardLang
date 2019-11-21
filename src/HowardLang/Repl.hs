@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 --module TypedLambdaCalcInitial.Repl (repl) where
-module TypedLambdaCalcInitial.Repl where
+module HowardLang.Repl where
 
 import Control.Monad.Except
 import Data.List
@@ -9,11 +9,11 @@ import Text.Megaparsec.Error
 import System.Console.Repline
 import System.Exit
 
-import TypedLambdaCalcInitial.Types
-import TypedLambdaCalcInitial.Typechecker
-import TypedLambdaCalcInitial.Parser
-import TypedLambdaCalcInitial.PrettyPrinter
-import TypedLambdaCalcInitial.Interpreters
+import HowardLang.Types
+import HowardLang.Typechecker
+import HowardLang.Parser
+import HowardLang.PrettyPrinter
+import HowardLang.Interpreters
 
 ------------
 --- Main ---

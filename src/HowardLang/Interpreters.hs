@@ -1,10 +1,10 @@
-module TypedLambdaCalcInitial.Interpreters where
+module HowardLang.Interpreters where
 
 import Control.Applicative
 import Data.Monoid (Sum(..))
 import Data.List (find)
 
-import TypedLambdaCalcInitial.Types
+import HowardLang.Types
 
 
 -------------

@@ -1,4 +1,4 @@
-module TypedLambdaCalcInitial.Parser where
+module HowardLang.Parser where
 
 import Control.Applicative hiding (some, many)
 import Control.Monad.Reader
@@ -11,8 +11,8 @@ import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
-import TypedLambdaCalcInitial.Types
-import TypedLambdaCalcInitial.Typechecker (typeSubstTop)
+import HowardLang.Types
+import HowardLang.Typechecker (typeSubstTop)
 
 -----------------------
 ----- BNF Grammer -----

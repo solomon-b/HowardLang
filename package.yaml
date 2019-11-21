@@ -1,0 +1,72 @@
+name:                HowardLang
+version:             0.1.0.0
+github:              "ssbothwell/HowardLang"
+license:             BSD3
+author:              "Solomon Bothwell"
+maintainer:          "ssbothwell@gmail.com"
+copyright:           "2019 Solomon Bothwell"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            An interpreted lambda calculus with algebraic and recursive types
+# category:            Programming Language
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/githubuser/HowardLang#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- haskeline
+- megaparsec
+- mtl
+- prettyprinter
+- repline
+- transformers
+
+default-extensions:
+  - InstanceSigs
+  - LambdaCase
+  - DeriveFunctor
+  - DeriveFoldable
+  - GeneralizedNewtypeDeriving
+  - FlexibleContexts
+  - FlexibleInstances
+  - OverloadedStrings
+
+library:
+  source-dirs: src
+  exposed-modules:
+    - HowardLang.Types
+    - HowardLang.Typechecker
+    - HowardLang.Parser
+    - HowardLang.PrettyPrinter
+    - HowardLang.Interpreters
+    - HowardLang.Repl
+
+executables:
+  HowardLang:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    - -Wall
+    dependencies:
+    - HowardLang
+
+tests:
+  HowardLang-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - HowardLang
