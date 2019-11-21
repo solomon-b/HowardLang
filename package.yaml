@@ -70,3 +70,5 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - HowardLang
+    - hedgehog
+    - hspec
