@@ -231,7 +231,7 @@ variant = Abs "x" (VariantT [("Nothing", UnitT), ("Just", NatT)]) $
           VariantCase (Var 0) [("Nothing", Nothing, Z), ("Just", Just "x", Var 0)]
 
 unroll :: Term
-unroll = (Unroll (VariantT [("Nothing", UnitT), ("Just", NatT)]) vTerm)
+unroll = Unroll (VariantT [("Nothing", UnitT), ("Just", NatT)]) vTerm
 
 variant' :: Term
 variant' = Abs "x" (VariantT [("Nothing", UnitT), ("Just", NatT)]) $

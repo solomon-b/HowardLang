@@ -24,6 +24,7 @@ dependencies:
 - haskeline
 - megaparsec
 - mtl
+- parsers
 - prettyprinter
 - repline
 - transformers
