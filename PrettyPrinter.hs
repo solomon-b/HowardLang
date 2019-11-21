@@ -6,6 +6,8 @@ import Data.List (intersperse)
 
 import TypedLambdaCalcInitial.Types
 
+import Debug.Trace
+
 ----------------------
 --- Pretty Printer ---
 ----------------------
@@ -106,12 +108,13 @@ pretty t = runReader (f t) []
     f (VariantCase t1 cases) = do
       ctx <- ask
       t1' <- f t1
+      let cases' = filter (\(tag,_, _) -> not $ elem tag ctx) cases
       patterns <- traverse (\(tag, bndr, t') -> do
         tC <- local (const (tag:ctx)) (f t')
         let bndr' = maybe mempty ( (:) ' ' . show) bndr
         pure $ tag ++ bndr' ++ " => " ++ tC
-        ) cases
-      pure $ "variantCase " ++ t1' ++ " of " ++ show patterns
+        ) cases'
+      pure $ "variantCase "  ++ t1' ++ " of " ++ show patterns
     -- TODO: Consider and define a more appropriate pretty printer:
     f (Fix t1) = pure $ "Fix (" ++ pretty t1 ++ ")"
     f (Roll _ t1) = pure $ "Roll (" ++ pretty t1 ++ ")"

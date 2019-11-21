@@ -59,6 +59,9 @@ sequencePattern :: (Tag, Maybe Binder, Term) -> Maybe (Tag, Binder, Term)
 sequencePattern (tag, Just bndr, trm) = Just (tag, bndr, trm)
 sequencePattern (_, Nothing, _) = Nothing
 
+checkTotal :: MonadError Err m => [(Tag, Maybe Binder, Term)] -> [(Tag, Type)] -> m ()
+checkTotal xs ys = if length xs /= length ys then throwTypeError' "Error: Pattern Match Non-Total" else pure ()
+
 typecheck ::
   (MonadError Err m , MonadReader Context m) => Term -> m Type
 typecheck (Var i) = asks (flip getBinding i)
@@ -159,6 +162,7 @@ typecheck (Fix t) = typecheck t >>= \case
 typecheck (VariantCase t1 cases) = typecheck t1 >>= \case
   (VariantT casesT) -> do
     let cases' = mapMaybe sequencePattern cases
+    checkTotal cases casesT
     types <- traverse (bindLocalTags casesT) cases'
     if allEqual types
     then pure $ types !! 0
