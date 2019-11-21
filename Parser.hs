@@ -12,6 +12,7 @@ import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
 import TypedLambdaCalcInitial.Types
+import TypedLambdaCalcInitial.Typechecker (typeSubstTop)
 
 -----------------------
 ----- BNF Grammer -----
@@ -49,6 +50,23 @@ TYPE = "Unit" | "Bool" | "Nat" | TYPE "->" "TYPE" | TYPE "x" TYPE | "(" TYPE { "
 TERM = GROUP | VAR | S | Z | BOOL | APP | ABS | CASE | IF | PAIR | FST | SND | TUPLE | PROJ | RECORD | INR | INL | SUMCASE | FIX | LET | LETREC;
 
 
+Example Expressions:
+
+(\x:Nat.x) === Abs "x" NatT (Var 0)
+
+Example Type Signatures:
+Product Type:
+(Nat, Bool) === (NatT, BoolT)
+
+Variant Type:
+(Left Bool | Right Nat) === VarantT [("Left", BoolT), ("Right, NatT")]
+
+Enumerated Type:
+(Nothing | Just Nat) === VariantT [("Nothing", UnitT), ("Just", NatT)]
+(Red | Blue | Green) === VariantT [("Red", UnitT), ("Blue", UnitT), ("Green", UnitT)]
+
+Recursive Type:
+mu. List: (Nil | Cons a List a)
 
 -}
 
@@ -134,6 +152,9 @@ parensOpt p = parens p <|> p
 integer :: Parser Integer
 integer = lexeme L.decimal
 
+comma :: Parser ()
+comma = void $ symbol ","
+
 semi :: Parser ()
 semi = void $ symbol ";"
 
@@ -187,6 +208,7 @@ rws = [ "if"
       , "sumCase"
       , "variantCase"
       , "fix"
+      , "mu"
       ]
 
 identifier :: Parser String
@@ -205,9 +227,11 @@ constructor = (lexeme . try) (p >>= check)
     p :: Parser String
     p = (:) <$> upperChar <*> many alphaNumChar
     check :: String -> Parser String
-    check str = if str `elem` rws
-                 then fail $ "keyword " ++ show str ++ " cannot be an identifier"
-                 else pure str
+    check str = do
+      ctx <- ask
+      if str `elem` ctx ++ rws
+        then fail $ show str ++ " is already bound"
+        else pure str
 
 ------------------
 ----- Parser -----
@@ -215,9 +239,27 @@ constructor = (lexeme . try) (p >>= check)
 -----------
 -- Types --
 -----------
+{-
+SHINY NEW TYPE PARSER
+
+TYPE = "(" TYPE ")" | START END
+START = UNIT | NAT | BOOL | SUM
+END = "X" TYPE | "->" TYPE | EPSILON
+
+FIXT = "mu." VAR TYPE
+RECORD = "{" TYPE { , TYPE } "}"
+TUPLE = "( TYPE { , TYPE } ")"
+VARIANT = VAR [TYPE] { | VAR [TYPE] }
+SUM = "SUM" TYPE TYPE
+UNIT = "Unit" | "()"
+NAT = "Nat"
+BOOL = "Bool"
+-}
+
+data Tok t = PairTok t | ArrowTok t | Epsilon
 
 pUnitT :: Parser Type
-pUnitT = rword "Unit" *> pure UnitT
+pUnitT = (rword "Unit" <|> rword "()") *> pure UnitT
 
 pNatT :: Parser Type
 pNatT = rword "Nat" *> pure NatT
@@ -225,55 +267,91 @@ pNatT = rword "Nat" *> pure NatT
 pBoolT :: Parser Type
 pBoolT = rword "Bool" *> pure BoolT
 
-pArrowNest :: Parser Type
-pArrowNest = parens pArrow
+-- TODO: Record Types Need to Capture Identifiers
+pRecordT :: Parser Type
+pRecordT = bracket $ do
+  tys <- p `sepBy1` comma
+  pure $ RecordT tys
+  where
+    p = do
+      tag <- identifier
+      ty <- parseType
+      pure (tag, ty)
 
-pArrow :: Parser Type
-pArrow = do
-  types <- (parens pArrow <|> pNatT <|> pBoolT <|> pUnitT) `sepBy1` arrow
-  pure $ foldr1 FuncT types
+-- TODO: Figure out how to allow for tuples to use parens
+pTupleT' :: Parser Type
+pTupleT' = squareBracket $ do
+  ty <- parseType
+  comma
+  tys <- parseType `sepBy1` comma
+  pure $ TupleT (ty:tys)
 
-pPairT :: Parser Type
-pPairT = do
-  ty1 <- parseType
-  void $ symbol "X"
-  ty2 <- parseType
-  pure $ PairT ty1 ty2
-
-pSumT :: Parser Type
-pSumT = do
+pSumT' :: Parser Type
+pSumT' = do
   rword "Sum"
-  ty1 <- parseType
-  ty2 <- parseType
-  pure $ SumT ty1 ty2
+  t1 <- parseType
+  t2 <- parseType
+  pure $ SumT t1 t2
 
-pVariantT :: Parser Type
-pVariantT = do
+pVariantT' :: Parser Type
+pVariantT' = do
   tags <- p `sepBy1` pipe
   pure $ VariantT tags
   where
+    p :: Parser (String, Type)
     p = do
       tag <- constructor
-      isEnum <- optional $ lookAhead pipe
-      case isEnum of
-        Nothing -> parseType >>= \ty -> pure (tag, ty)
-        Just _ -> pure (tag, UnitT)
+      ty <- optional parseType
+      case ty of
+        Nothing -> pure (tag, UnitT)
+        Just ty' -> pure (tag, ty')
 
 -- | Recursive Type signature
 pFixT :: Parser Type
 pFixT = do
-  rword "Mu"
-  var <- identifier
-  ty <- parseType
-
-  pure $ FixT var ty
+  rword "mu"
+  dot
+  var <- constructor
+  colon
+  ty <- bindLocalVar var parseType
+  pure $ typeSubstTop (FixT var ty) ty
 
 pVarT :: Parser Type
-pVarT = undefined
+pVarT = do
+  ctx <- ask
+  val <- identifier
+  if null ctx
+    then pure $ VarT 0
+    else case searchContext ctx val of
+           Just i -> pure $ VarT i
+           Nothing -> customFailure $ UnboundError $ val ++ " not in scope."
+  where
+    searchContext :: Eq a => [a] -> a -> Maybe Int
+    searchContext ctx val = (find (== val) ctx) >>= flip elemIndex ctx
 
 parseType :: Parser Type
-parseType = try pArrow <|> pVariantT <|> pSumT <|> pPairT <|> pBoolT <|> pNatT
+parseType = do
+  t1 <- parens parseType <|> start
+  mT2 <- end
+  case mT2 of
+    Epsilon -> pure t1
+    PairTok t2 -> pure $ PairT t1 t2
+    ArrowTok t2 -> pure $ FuncT t1 t2
 
+start :: Parser Type
+start = pFixT <|> pUnitT <|> pNatT <|> pBoolT <|> pSumT' <|> pVariantT' <|> pTupleT' <|> pRecordT <|> pVarT 
+
+end :: Parser (Tok Type)
+end = arrowEnd <|> pairEnd <|> pure Epsilon
+  where
+    arrowEnd = do
+      arrow
+      t <- parseType
+      pure $ ArrowTok t
+    pairEnd  = do
+      void $ symbol "X"
+      t <- parseType
+      pure $ PairTok t
 
 -----------
 -- Terms --
@@ -480,6 +558,7 @@ pTag = do
       term <- pTerm
       rword "as"
       ty <- parensOpt $ parseType
+      -- TODO: DETECT IF TY CONTAINS FIXT THEN ROLL DAT BOI UP
       pure $ Tag tag term ty
 
 pVariantCase :: Parser Term
@@ -496,7 +575,6 @@ pVariantPattern = do
   isEnum <- optional phatArrow
   case isEnum of
     Just _ -> pTerm >>= \t -> pure (tagVar, Nothing, t)
-    --Just "_" -> pTerm >>= \t -> pure (tagVar, Nothing, t)
     Nothing -> do
       equal
       tagBinder <- identifier

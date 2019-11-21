@@ -80,30 +80,30 @@ data Type
   | UnitT
   | PairT Type Type
   | TupleT [Type]
-  | RecordT [Type]
+  | RecordT [(Tag, Type)]
   | SumT Type Type
   | VariantT [(Tag, Type)]
   | FixT Varname Type
   | VarT DeBruijn
-  deriving (Data, Eq)
+  deriving (Show, Data, Eq)
 
-instance Show Type where
-  show BoolT = "Bool"
-  show NatT  = "Nat"
-  show UnitT = "Unit"
-  show (FuncT f1@(FuncT _ _) f2@(FuncT _ _)) = "(" ++ show f1 ++ ")" ++
-                                               " -> " ++ "(" ++ show f2 ++ ")"
-  show (FuncT f1@(FuncT _ _) t2) = "(" ++ show f1 ++ ")" ++ " -> " ++ show t2
-  show (FuncT t1 f2@(FuncT _ _)) = show t1 ++ " -> " ++ "(" ++ show f2 ++ ")"
-  show (FuncT t1 t2) = show t1 ++ " -> " ++ show t2
-  show (PairT t1 t2) = "<" ++ show t1 ++ ", " ++ show t2 ++ ">"
-  show (TupleT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ show <$> ts in "(" ++ tys ++ ")"
-  show (RecordT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ show <$> ts in "{" ++ tys ++ "}"
-  show (SumT left right) = "Sum " ++ show left ++ " " ++ show right
-  show v@(VariantT _) = showVariant v
-  -- TODO: Write a proper show instance for FixT
-  show (FixT var ty) = "FixT " ++ var ++ " " ++ show ty
-  show (VarT i) = "VarT " ++ show i
+--instance Show Type where
+--  show BoolT = "Bool"
+--  show NatT  = "Nat"
+--  show UnitT = "Unit"
+--  show (FuncT f1@(FuncT _ _) f2@(FuncT _ _)) = "(" ++ show f1 ++ ")" ++
+--                                               " -> " ++ "(" ++ show f2 ++ ")"
+--  show (FuncT f1@(FuncT _ _) t2) = "(" ++ show f1 ++ ")" ++ " -> " ++ show t2
+--  show (FuncT t1 f2@(FuncT _ _)) = show t1 ++ " -> " ++ "(" ++ show f2 ++ ")"
+--  show (FuncT t1 t2) = show t1 ++ " -> " ++ show t2
+--  show (PairT t1 t2) = "<" ++ show t1 ++ ", " ++ show t2 ++ ">"
+--  show (TupleT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ show <$> ts in "[" ++ tys ++ "]"
+--  show (RecordT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ show <$> ts in "{" ++ tys ++ "}"
+--  show (SumT left right) = "Sum " ++ show left ++ " " ++ show right
+--  show v@(VariantT _) = showVariant v
+--  -- TODO: Write a proper show instance for FixT
+--  show (FixT var ty) = "FixT " ++ var ++ " " ++ show ty
+--  show (VarT i) = "VarT " ++ show i
 
 showVariant :: Type -> String
 showVariant (VariantT tys) = unwords . intersperse "|" $ f <$> tys
@@ -164,6 +164,8 @@ isVal c (InL t _)   = isVal c t
 isVal c (InR t _)   = isVal c t
 isVal c (Tag _ t _) = isVal c t
 isVal c (Roll _ t)  = isVal c t
+isVal c (Unroll _ (Roll _ _))  = False
+isVal c (Unroll _ t)  = isVal c t
 -- TODO: Should Lets and Cases be considered values if their terms are fully reduced? I think so?
 isVal _ _           = False
 
@@ -213,18 +215,31 @@ hdTest = App hd consTest
 -- Variant Form
 
 listTV :: Type
-listTV = FixT "listTV" (VariantT [("Nil", UnitT), ("Cons", PairT NatT $ VarT 0)])
+listTV = FixT "listTV" (VariantT [("Nil", UnitT), ("Cons", TupleT [NatT, VarT 0])])
+
+tagNil :: Term
+tagNil = (Tag "Nil" Unit (VariantT [("Nil", UnitT), ("Cons", TupleT [NatT, listTV])]))
 
 nilV :: Term
-nilV = Roll listTV (Tag "Nil" Unit (VariantT [("Nil", UnitT), ("Cons", PairT NatT listTV)]))
+nilV = Roll listTV (Tag "Nil" Unit (VariantT [("Nil", UnitT), ("Cons", TupleT [NatT, listTV])]))
+
+vTerm :: Term
+vTerm = Tag "Just" Z (VariantT [("Nothing", UnitT),("Just", NatT)])
 
 variant :: Term
 variant = Abs "x" (VariantT [("Nothing", UnitT), ("Just", NatT)]) $
           VariantCase (Var 0) [("Nothing", Nothing, Z), ("Just", Just "x", Var 0)]
 
+unroll :: Term
+unroll = (Unroll (VariantT [("Nothing", UnitT), ("Just", NatT)]) vTerm)
+
+variant' :: Term
+variant' = Abs "x" (VariantT [("Nothing", UnitT), ("Just", NatT)]) $
+          VariantCase unroll [("Nothing", Nothing, Z), ("Just", Just "x", Var 0)]
+
 consV :: Term
 consV = Abs "x" NatT . Abs "xs" listTV .
-       Roll listTV $ Tag "Cons" (Pair (Var 1) (Var 0)) (VariantT [("Nil", UnitT), ("Cons", PairT NatT listTV)])
+       Roll listTV $ Tag "Cons" (Tuple [("0", Var 1), ("1", Var 0)]) (VariantT [("Nil", UnitT), ("Cons", TupleT [NatT, listTV])])
 
 hdV :: Term
 hdV = Abs "xs" listTV $

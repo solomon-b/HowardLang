@@ -130,7 +130,7 @@ typecheck (Get (Record ts) v) =
     Nothing -> throwTypeError' $ "Type Error: No such field " ++ v ++ " in record"
 typecheck (Get t1 _) = throwTypeError' $ "Type Error: " ++ pretty t1 ++ " is not a Tuple or Record."
 -- TODO: Typechecker is passing `{foo=1, foo=True}`
-typecheck (Record ts) = traverse (\(_,t) -> typecheck t) ts >>= pure . RecordT
+typecheck (Record ts) = (traverse . traverse) typecheck ts >>= pure . RecordT
 typecheck (InL t1 ty@(SumT tyL _)) = typecheck t1 >>= \ty1 ->
   if ty1 == tyL
   then pure ty
@@ -155,14 +155,14 @@ typecheck t@(Tag tag t1 ty) = typecheck t1 >>= \ty1 ->
       case lookup tag tys of
         Just ty' | ty' == ty1 -> pure ty
         _ -> throwTypeError t ty1 ty -- TODO: Improve this error, it does not reference the sum type.
-    _ -> throwTypeError t ty1 ty
+    _ -> error "Foo" -- throwTypeError t ty1 ty
 typecheck (Fix t) = typecheck t >>= \case
   (FuncT ty1 ty2) -> if ty1 == ty2 then pure ty2 else throwTypeError t ty2 ty1
   ty  -> throwTypeError' $ "Type Error: " ++ show ty ++ " is not a function type"
 typecheck (VariantCase t1 cases) = typecheck t1 >>= \case
   (VariantT casesT) -> do
     let cases' = mapMaybe sequencePattern cases
-    --checkTotal cases casesT
+    checkTotal cases casesT
     types <- traverse (bindLocalTags casesT) cases'
     if allEqual types
     then pure $ types !! 0
@@ -174,6 +174,7 @@ typecheck (Unroll u@(FixT _ t1) term) = do
   if (ty1 == u)
     then pure u'
     else throwTypeError' "Type Error: Temp Error bad Unroll"
+typecheck (Unroll _ t1) = typecheck t1
 typecheck (Roll u@(FixT _ t1) term) = do
   let u' = typeSubstTop u t1
   ty1 <- typecheck term
@@ -194,7 +195,7 @@ typeShift target t = f 0 t
     f i (SumT ty1 ty2)  = SumT     (f i ty1) (f i ty2)
     f i (FuncT ty1 ty2) = FuncT    (f i ty1) (f i ty2)
     f i (TupleT tys)    = TupleT   (f i <$> tys)
-    f i (RecordT tys)   = RecordT  (f i <$> tys)
+    f i (RecordT tys)   = RecordT  ((fmap . fmap) (f i) tys)
     f i (VariantT tys)  = VariantT ((fmap . fmap) (f i) tys)
     f i (VarT j)        = if j >= i then (VarT $ j + target) else VarT j
     f i (FixT b t1)     = FixT b (f (i + 1) t1)
@@ -205,7 +206,7 @@ typeSubst a ty (PairT ty1 ty2) = PairT (typeSubst a ty ty1) (typeSubst a ty ty2)
 typeSubst a ty (SumT ty1 ty2)  = SumT (typeSubst a ty ty1) (typeSubst a ty ty2)
 typeSubst a ty (FuncT ty1 ty2) = FuncT (typeSubst a ty ty1) (typeSubst a ty ty2) -- NOTE: Suspect?
 typeSubst a ty (TupleT tys)    = TupleT $ (typeSubst a ty) <$> tys
-typeSubst a ty (RecordT tys)   = RecordT $ (typeSubst a ty) <$> tys
+typeSubst a ty (RecordT tys)   = RecordT $ (fmap . fmap) (typeSubst a ty) tys
 typeSubst a ty (VariantT tys)  = VariantT $ (fmap . fmap) (typeSubst a ty) tys
 typeSubst a ty (VarT b)        = if a == b then ty else (VarT b)
 typeSubst a ty (FixT b t)      = FixT b (typeSubst (a+1) ty t)
