@@ -99,6 +99,19 @@ S (S (S Z))
 (λ n : Nat. (λ p : Bool. S n))
 ```
 
+#### Recursive Functions
+```
+λ> let isZero (n : Nat) = case n of Z => True | (S m) => False 
+   in let pred (n : Nat) = case n of Z => Z | (S m) => m 
+   in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) 
+   in isEven 4
+True
+λ> let isZero (n : Nat) = case n of Z => True | (S m) => False 
+   in let pred (n : Nat) = case n of Z => Z | (S m) => m 
+   in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in isEven 3
+False
+```
+
 #### Pattern Matching:
 ```ml
 λ> :t (\x:(Nothing | Just Nat).variantCase x of Nothing => 0 | Just=y => y)
