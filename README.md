@@ -100,7 +100,7 @@ S (S (S Z))
 ```
 
 #### Recursive Functions
-```
+```ml
 λ> let isZero (n : Nat) = case n of Z => True | (S m) => False 
    in let pred (n : Nat) = case n of Z => Z | (S m) => m 
    in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) 
