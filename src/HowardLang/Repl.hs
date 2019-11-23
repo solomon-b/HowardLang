@@ -4,6 +4,7 @@ module HowardLang.Repl where
 
 import Control.Monad.Except
 import Data.List
+import Data.Function
 import Text.Megaparsec.Error
 
 import System.Console.Repline
@@ -14,6 +15,7 @@ import HowardLang.Typechecker
 import HowardLang.Parser
 import HowardLang.PrettyPrinter
 import HowardLang.Interpreters
+import HowardLang.AscribeTree
 
 ------------
 --- Main ---
@@ -69,7 +71,7 @@ options = [
 cmd :: String -> Repl ()
 cmd input =
   let res = do
-        parsed  <- runParse input
+        parsed  <- ascribeRolls <$> runParse pMain input
         _ <- runTypecheckM [] (typecheck parsed)
         reduced <- (Right $ multiStepEval [] parsed :: Either Err Term)
         --let reduced = bigStepEval [] parsed
@@ -77,13 +79,13 @@ cmd input =
   in liftIO $ either (putStrLn . showE) putStrLn res
 
 quit :: a -> Repl ()
-quit _ = liftIO $ exitSuccess
+quit _ = liftIO exitSuccess
 
 typeof :: [String] -> Repl ()
 typeof strs =
   let ty = do
-        term <- runParse $ unwords strs
-        pure $ show term
+        term <- ascribeRolls <$> runParse pMain (unwords strs)
+        --pure $ show term
         show <$> runTypecheckM [] (typecheck term)
   in liftIO $ either (putStrLn . showE) putStrLn ty
 

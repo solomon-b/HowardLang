@@ -22,7 +22,7 @@ import HowardLang.PrettyPrinter
 bidirectional :: Property
 bidirectional = property $ do
   t1 <- Gen.sample $ runReaderT genAbs []
-  let res = runParse $ pretty t1
+  let res = runParse pMain $ pretty t1
   Right t1 === res
 
 

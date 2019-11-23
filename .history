@@ -1,3 +1,73 @@
+let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in isEven 3
+let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in isEven 4
+let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in isEven 3
+let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in isEven 4
+let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in isEven 2
+let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in isEven 3
+let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in True
+let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Nat) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in True
+let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Nat) (n : Nat) = if: isZero n then: True else: if isZero (pred n) then: False else: rec (pred (pred n)) in True
+let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec (rec : Nat -> Nat) (n : Nat) = if: isZero n then: True else: if isZero (pred n) then: False else: rec (pred (pred n)) in True
+let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in isZero (pred 2)
+let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in isZero (pred 1)
+let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in pred 3
+let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in pred 2
+let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in pred 1
+let isZero (n : Nat) = case n of Z => True | (S m) => False in letrec isEven (rec : Nat -> Nat) (n : Nat) = case n of Z => True | (S m) => case m of Z => False | (S l) => rec l in isEven 0
+let isZero (n : Nat) = case n of Z => True | (S m) => False in isZero 3
+let isZero (n : Nat) = case n of Z => True | (S m) => False in isZero 1
+let isZero (n : Nat) = case n of Z => True | (S m) => False in isZero 0
+let isZero (n : Nat) = case n of Z => True | (S m) => False in isZero 0
+letrec isZero (n : Nat) = case n of Z => True | (S m) => False in isZero 0
+letrec isZero (rec : Nat -> Nat) (n : Nat) = case n of Z => True | (S m) => rec m in isZero 0
+letrec isZero (rec : Nat -> Nat) (a : Nat) = a in isZero 0
+letrec isZero (rec : Nat -> Nat) (a : Nat) = a in isZero
+let isZero (a : Nat) = a
+letrec isZero (rec) (a) = a
+letrec isZero (rec : Nat -> Nat) (a : Nat) = a
+letrec
+(\v:(Nothing | Just Nat).variantCase v of Nothing => False | Just=x => True) (tag Just 4 as (Nothing | Just Nat))
+(\v:(Nothing | Just Nat).variantCase v of Nothing => False | Just=x => True) (tag Nothing as (Nothing | Just Nat))
+:t (\v:(Nothing | Just Nat).variantCase v of Nothing => False | Just=x => True)
+(\v:(Nothing | Just Nat).variantCase v of Nothing => False | Just=x => True)
+(v:(Nothing | Just Nat).variantCase v of Nothing => False | Just=x => True)
+(v:(Nothing | Just Nat).variantCase v of Nothing => False | Just=x => True)
+tag Nothing as (Nothing | Just Nat)
+(\m:Nat.S m) 1
+(\m:Nat.S m) `
+(\m:Nat.S m) 0
+:t (\m:Nat.S m)
+(\m:Nat.S m)
+:t tag Just True as (Nothing | Just Nat)
+:t tag Just 3 as (Nothing | Just Nat)
+:t tag Nothing as (Nothing | Just Nat)
+tag Nothing as (Nothing | Just Nat)
+:t (1, True, True)
+:t (1, True)
+(1, True)
+:t Unit
+Unit
+:t False
+:t False
+False
+True
+:t 5
+5
+4
+3
+2
+1
+(\x:Nat.S x) 2
+(\x:Nat.S x) 1
+(\x:Nat.S x) 0
+:t 54
+5
+4
+3
+2
+1
+:t True
+True
 (\x:(Nothing | Just Nat).variantCase x of Nothing => 0 | Just=y => y) (tag Just 2 as (Nothing | Just Nat))
 (\x:(Nothing | Just Nat).variantCase x of Nothing => 0 | Just=y => y) (tag Nothing as (Nothing | Just Nat))
 :t (\x:(Nothing | Just Nat).variantCase x of Nothing => 0 | Just=y => y) (tag Nothing as (Nothing | Just Nat))
@@ -28,73 +98,3 @@ tag Left True as (Left Nat | Right Bool)
 :t (1, True, Unit)
 (1, True, Unit)
 :t Unit
-Unit
-:t 1
-1
-:t True
-True
-:t (True, 1, (\x:Nat.x))
-(True, 1, (\x:Nat.x))
-:t (\p:Bool.if: p then: 1 else: 0)
-:t True
-True
-4
-3
-2
-1
-:t True
-True
-:t True
-True
-(1,2,3,4)
-tag Nil as (mu. ListNat (Nil | Cons [Nat, ListNat]))
-tag Nil as (mu. ListNat (Nil | Cons [Nat, ListNat]))
-tag Nil as (mu. ListNat (Nil | Cons [Nat, ListNat]))
-tag Nil as (mu. ListNat (Nil | Cons [Nat, ListNat]))
-tag Nil as (mu. ListNat (Nil | Cons [Nat, ListNat]))
-tag Nil as (mu. ListNat (Nil | Cons [Nat, ListNat]))
-tag Nil as (mu. ListNat (Nil | Cons [Nat, ListNat]))
-tag Nil as (mu. ListNat (Nil | Cons [Nat, ListNat]))
-tag Nil as (mu. ListNat (Nil | Cons [Nat, ListNat]))
-tag Nil as (mu. ListNat (Nil | Cons [Nat, ListNat]))
-tag Nil as (mu. ListNat (Nil | Cons [Nat, ListNat]))
-tag Nil as (mu. ListNat Nil | Cons [Nat, ListNat])
-tag Nil as (mu. ListNat Nil | Cons (Nat, ListNat))
-let xs = tag Nil as (mu. ListNat Nil | Cons (Nat, ListNat)) in xs
-(1,2,3,4)
-:t (\x:Nothing | Just Nat. x)
-(\x:Nothing | Just Nat. x)
-(\x:Nat.x) 1
-(\x:Nat.x)
-(x:Nat.x)
-let x = 1 in x
-<1, True, True>
-<1, True>
-Unit
-tag Just 1 as (Nothing | Just Nat)
-:t tag Nothing as (Nothing | Just Nat)
-tag Nothing as (Nothing | Just Nat)
-tag Nothing Z as (Nothing Nat | Just Nat)
-:t { foo=True, baz=False }
-:t { foo=True, baz=False }
-{ foo=True, baz=False }
-:t (1, True, 1)
-:t (1, True)
-(1, True)
-tag Nothing Z as (Nothing Nat | Just Nat)
-tag Nothing Z as (Nothing Just | Just Nat)
-tag Nothing as (Nothing Just | Just Nat)
-:r
-tag Nothing as (Nothing | Just Nat)
-tag Nothing as (Nothing | Just)
-tag Nothing as (Nothing | Just Nat)
-tag Left Z as (Left Nat | Right Bool)
-tag Monday Unit as Monday | Tuesday
-tag Monday Unit as (Monday | Tuesday)
-tag Monday as (Monday | Tuesday)
-inl Unit : Sum Unit Nat
-inl Unit : (Sum Unit Nat)
-inl Unit as (Sum Unit Nat)
-tag Nothing as (Nothing | Just Nat)
-tag Just 1 as (Nothing | Just Nat)
-tag Just 1 as (Nothing | Just Int)

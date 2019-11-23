@@ -5,6 +5,7 @@ import Data.Monoid (Sum(..))
 import Data.List (find)
 
 import HowardLang.Types
+import HowardLang.AscribeTree
 
 
 -------------
@@ -70,7 +71,7 @@ shift target t = f 0 t
     f i (InL t1 ty) = InL (f i t1) ty
     f i (InR t1 ty) = InR (f i t1) ty
     f i (SumCase t1 tL vL tR vR) = SumCase (f i t1) (f (i + 1) tL) vL (f (i + 1) tR) vR
-    f i (Tag tag t1 ty) = Tag tag (f i t1) ty
+    f i (Tag tag t1) = Tag tag (f i t1)
     f i (VariantCase t1 cases) = VariantCase (f i t1) $ cases >>= \(tag, bnd, trm) -> pure (tag, bnd, f (i + 1) trm)
     f i (Fix t1) = Fix (f i t1)
     f i (Roll ty t1) = Roll ty (f i t1)
@@ -123,7 +124,7 @@ subst j s t = f 0 s t
                   vL
                   (f (c + 1) (shift c s') tR)
                   vR
-        f c s' (Tag tag t1 ty) = Tag tag (f c s' t1) ty
+        f c s' (Tag tag t1) = Tag tag (f c s' t1)
         f c s' (VariantCase t1 cases) = let cases' = ((fmap . fmap) (f (c + 1) (shift c s')) cases)
                                         in VariantCase (f c s' t1) cases'
         f c s' (Fix t1) = Fix (f c s' t1)
@@ -140,7 +141,7 @@ singleEval :: Context -> Term -> Maybe Term
 singleEval ctx t =
   case t of
     (App (Abs _ _ t12) v2) | isVal ctx v2 -> pure $ substTop v2 t12
-    (App v1@(Abs _ _ _) t2)               -> App v1 <$> singleEval ctx t2
+    (App v1@Abs{} t2)               -> App v1 <$> singleEval ctx t2
     (App t1 t2)                           -> singleEval ctx t1 >>= \t1' -> pure $ App t1' t2
     (If Tru t2 _)                         -> pure t2
     (If Fls _ t3)                         -> pure t3
@@ -161,12 +162,12 @@ singleEval ctx t =
     (Tuple ts) ->
       let evalElem [] = Nothing
           evalElem ((v, t1):ts') | isVal ctx t1 = let ts'' = evalElem ts' in ((:) (v, t1)) <$> ts''
-          evalElem ((v, t1):ts') = let t1' = (,) v <$> (singleEval ctx t1) in liftA2 (:) t1' (pure ts')
+          evalElem ((v, t1):ts') = let t1' = (,) v <$> singleEval ctx t1 in liftA2 (:) t1' (pure ts')
       in Tuple <$> evalElem ts
     (Record ts) -> do
       let evalElem [] = Nothing
           evalElem ((v, t1):ts') | isVal ctx t1 = let ts'' = evalElem ts' in ((:) (v, t1)) <$> ts''
-          evalElem ((v, t1):ts') = let t1' = (,) v <$> (singleEval ctx t1) in liftA2 (:) t1' (pure ts')
+          evalElem ((v, t1):ts') = let t1' = (,) v <$> singleEval ctx t1 in liftA2 (:) t1' (pure ts')
       Record <$> evalElem ts
     (Get (Tuple ts) var) -> lookup var ts
     (Get (Record ts) var) -> lookup var ts
@@ -177,11 +178,11 @@ singleEval ctx t =
     (SumCase (InR t1 _) _ _ tR _) -> pure $ substTop t1 tR
     (InL t1 ty) -> flip InR ty <$> singleEval ctx t1
     (InR t1 ty) -> flip InR ty <$> singleEval ctx t1
-    (Tag tag t1 ty) -> singleEval ctx t1 >>= \t1' -> pure $ Tag tag t1' ty
+    (Tag tag t1) -> singleEval ctx t1 >>= \t1' -> pure $ Tag tag t1'
     (VariantCase t1 cases) | not $ isVal ctx t1 -> singleEval ctx t1 >>= \t1' -> pure (VariantCase t1' cases)
     (VariantCase t1 cases) ->
       case t1 of
-        (Tag tag t1' _) -> case find (\(tag',_,_) -> tag == tag') cases of
+        (Tag tag t1') -> case find (\(tag',_,_) -> tag == tag') cases of
           Just (_,_, term) -> pure $ substTop t1' term
           Nothing -> Nothing
         _ -> Nothing
@@ -194,11 +195,11 @@ singleEval ctx t =
 
 -- Multistep Evaluation Function
 multiStepEval :: Context -> Term -> Term
-multiStepEval ctx t = maybe t (multiStepEval ctx) (singleEval ctx t)
+multiStepEval ctx t = let t' = stripAscriptions t in maybe t' (multiStepEval ctx) (singleEval ctx t')
 
 -- Big Step Evaluation Function
 bigStepEval :: Context -> Term -> Term
-bigStepEval _ t@(Abs _ _ _) = t
+bigStepEval _ t@Abs{} = t
 bigStepEval ctx (App t1 t2) =
   let (Abs _ _ t12) = bigStepEval ctx t1
       v2  = bigStepEval ctx t2
@@ -235,7 +236,7 @@ bigStepEval ctx (VariantCase t1 cases) =
   in undefined -- TODO: Implement bigstep variantcase eval
 bigStepEval _ t@(InL _ _) = t
 bigStepEval _ t@(InR _ _) = t
-bigStepEval _ t@(Tag _ _ _) = t
+bigStepEval _ t@(Tag _ _) = t
 bigStepEval ctx t@(Fix t1) = bigStepEval ctx $ substTop t t1
 bigStepEval ctx (Roll ty t1) = Roll ty $ bigStepEval ctx t1
 bigStepEval ctx (Unroll _ (Roll _ t1)) = bigStepEval ctx t1

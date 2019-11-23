@@ -59,18 +59,19 @@ Nothing | Just Nat
 ```
 
 #### Recursive Types:
-The parser is incomplete but here is the AST for a linked list:
-```haskell
-ListT :: Type
-ListT = FixT "ListT" (VariantT [("Nil", UnitT), ("Cons", TupleT [NatT, VarT 0])])
+The syntax and pretty printing is especially awful for these right now:
+```ml
+λ> (tag Cons [3, tag Cons [2, tag Cons [1, tag Nil]]] as mu.NatList: Nil | Cons [Nat, NatList])
+Cons (S (S (S Z)) , Cons (S (S Z) , Cons (S Z , Nil)))
 
-nil :: Term
-nil = Roll ListT (Tag "Nil" Unit (VariantT [("Nil", UnitT), ("Cons", TupleT [NatT, ListT])]))
+λ> :t (tag Cons [3, tag Cons [2, tag Cons [1, tag Nil]]] as mu.NatList: Nil | Cons [Nat, NatList])
+Rec Type NatList = Nil | Cons [Nat, VarT 0]
 
-cons :: Term
-cons = Abs "x" NatT . Abs "xs" ListT .
-       Roll ListT $ Tag "Cons" (Tuple [("0", Var 1), ("1", Var 0)]) (VariantT [("Nil", UnitT), ("Cons", TupleT [NatT, ListT])])
-```
+λ> tag Branch [tag Leaf, 0, tag Branch [tag Leaf, 1, tag Leaf]] as mu.NatTree: Leaf | Branch [NatTree, Nat, NatTree]
+Branch (Leaf , 0 , Branch (Leaf , S Z , Leaf))
+
+λ> :t tag Branch [tag Leaf, 0, tag Branch [tag Leaf, 1, tag Leaf]] as mu.NatTree: Leaf | Branch [NatTree, Nat, NatTree]
+Rec Type NatTree = Leaf | Branch [VarT 0, Nat, VarT 0]```
 
 #### Functions:
 ```ml

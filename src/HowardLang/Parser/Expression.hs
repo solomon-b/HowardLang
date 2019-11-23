@@ -6,6 +6,8 @@ import Control.Monad.Reader
 import Data.Functor
 import Data.List
 
+import Lens.Micro
+
 import Text.Megaparsec
 import Text.Megaparsec.Char
 
@@ -105,7 +107,7 @@ pTerm = foldl1 App <$> (  pIf
                       <|> try pStmts
                       <|> try pValues
                       <|> parens pTerm
-                       ) `sepBy1` sc
+                       ) `sepBy1` whitespace
 pMain :: Parser Term
 pMain = pTerm <* eof
 
@@ -174,7 +176,7 @@ pFixT = do
 
 pVarT :: Parser Type
 pVarT = do
-  ctx <- ask
+  ctx <- asks _bindings
   val <- identifier
   if null ctx
     then pure $ VarT 0
@@ -183,7 +185,7 @@ pVarT = do
            Nothing -> customFailure $ UnboundError $ val ++ " not in scope."
   where
     searchContext :: Eq a => [a] -> a -> Maybe Int
-    searchContext ctx val = (find (== val) ctx) >>= flip elemIndex ctx
+    searchContext ctx val = find (== val) ctx >>= flip elemIndex ctx
 
 parseType :: Parser Type
 parseType = do
@@ -231,7 +233,7 @@ pString = do
 
 pVar :: Parser Term
 pVar = do
-  ctx <- ask
+  ctx <- asks _bindings
   val <- identifier
   if null ctx
     then pure $ Var 0
@@ -240,16 +242,16 @@ pVar = do
            Nothing -> customFailure $ UnboundError $ val ++ " not in scope."
   where
     searchContext :: Eq a => [a] -> a -> Maybe Int
-    searchContext ctx val = (find (== val) ctx) >>= flip elemIndex ctx
+    searchContext ctx val = find (== val) ctx >>= flip elemIndex ctx
 
 pTuple :: Parser Term
-pTuple = parens $ do
+pTuple = squareBracket $ do
   ts <- zip nats <$> pTerm `sepBy1` symbol ","
   if length ts == 1
   then pure $ snd $ head ts
   else pure $ Tuple ts
   where
-    nats = show <$> ([1..] :: [Int])
+    nats = show <$> ([0,1..] :: [Int])
 
 pRecord :: Parser Term
 pRecord = bracket $ do
@@ -312,9 +314,10 @@ pLetParams = some . parens $ do
 
 parseAbsWrappedTerm :: Maybe [(Varname, Type)] -> Parser Term
 parseAbsWrappedTerm Nothing = pTerm
-parseAbsWrappedTerm (Just xs) = ask >>= \ctx ->
-    let bindings = foldl (flip updateEnv) ctx $ fst <$> xs
-    in foldr (\(var, ty) t -> Abs var ty <$> t) (local (const bindings) pTerm) xs
+parseAbsWrappedTerm (Just xs) = do
+  ctx <- ask
+  let bindings' = foldl (flip bindVar) ctx $ fst <$> xs
+  foldr (\(var, ty) t -> Abs var ty <$> t) (local (const bindings') pTerm) xs
 
 -- TODO: Add sugar to add `rec` param automagically
 pLetRec :: Parser Term
@@ -379,22 +382,55 @@ pCase = do
   s <- bindLocalVar var pTerm
   pure $ Case n z var s
 
+
 pTag :: Parser Term
 pTag = do
+  rword "tag"
+  t1 <- try variant <|> enum
+  optType <- optional $ do
+    rword "as"
+    parseType
+  case optType of
+    Just ty ->
+      case findRec ty of
+        Just fixT -> pure $ Roll fixT t1
+        Nothing -> pure $ As t1 ty
+    Nothing -> pure t1
+  where
+    variant :: Parser Term
+    variant = Tag <$> constructor <*> pTerm
+    enum :: Parser Term
+    enum = Tag <$> constructor <*> pure Unit
+
+pTag' :: Parser Term
+pTag' = do
   rword "tag"
   tag <- constructor
   isEnum <- optional $ lookAhead (rword "as")
   case isEnum of
     Just _ -> do
       rword "as"
-      ty <- parensOpt $ parseType
-      pure $ Tag tag Unit ty
+      ty <- parensOpt parseType
+      case findRec ty of
+        Just fixT -> pure $ Roll fixT $ As (Tag tag Unit) ty
+        Nothing -> pure $ As (Tag tag Unit) ty
     Nothing -> do
       term <- pTerm
       rword "as"
-      ty <- parensOpt $ parseType
-      -- TODO: DETECT IF TY CONTAINS FIXT THEN ROLL DAT BOI UP
-      pure $ Tag tag term ty
+      ty <- parensOpt parseType
+      case findRec ty of
+        Just fixT -> pure $ Roll fixT $ As (Tag tag term) ty
+        Nothing -> pure $ As (Tag tag term) ty
+
+findRec :: Type -> Maybe Type
+findRec (FuncT ty1 ty2) = findRec ty1 <|> findRec ty2
+findRec (PairT ty1 ty2) = findRec ty1 <|> findRec ty2
+findRec (TupleT tys) = foldr (<|>) Nothing (fmap findRec tys)
+findRec (RecordT tys) = foldr (<|>) Nothing  $ fmap (findRec . snd) tys
+findRec (SumT ty1 ty2) = findRec ty1 <|> findRec ty2
+findRec (VariantT tys) = foldr (<|>) Nothing  $ fmap (findRec . snd) tys
+findRec ty@(FixT _ _) = Just ty
+findRec _ = Nothing
 
 pVariantCase :: Parser Term
 pVariantCase = do

@@ -39,7 +39,7 @@ data Term
   | InL Term Type
   | InR Term Type
   | SumCase Term Term Binder Term Binder
-  | Tag Tag Term Type
+  | Tag String Term
   | VariantCase Term [(Tag, Maybe Binder, Term)] -- [(binder, tag)]
   | Fix Term
   | Roll Type Term
@@ -102,7 +102,7 @@ instance Show Type where
   show (SumT left right) = "Sum " ++ show left ++ " " ++ show right
   show v@(VariantT _) = showVariant v
   -- TODO: Write a proper show instance for FixT
-  show (FixT var ty) = "FixT " ++ var ++ " " ++ show ty
+  show (FixT var ty) = "Rec Type " ++ var ++ " = " ++ show ty
   show (VarT i) = "VarT " ++ show i
 
 showVariant :: Type -> String
@@ -162,9 +162,9 @@ isVal c (Tuple ts)  = all (isVal c . snd) ts
 isVal c (Record ts)  = all (isVal c . snd) ts
 isVal c (InL t _)   = isVal c t
 isVal c (InR t _)   = isVal c t
-isVal c (Tag _ t _) = isVal c t
+isVal c (Tag _ t) = isVal c t
 isVal c (Roll _ t)  = isVal c t
-isVal c (Unroll _ (Roll _ _))  = False
+isVal _ (Unroll _ (Roll _ _))  = False
 isVal c (Unroll _ t)  = isVal c t
 -- TODO: Should Lets and Cases be considered values if their terms are fully reduced? I think so?
 isVal _ _           = False
@@ -184,69 +184,3 @@ allEqual (x:xs) = all (== x) xs
 -- TODO: Fix this bug:
 -- λ> let x = {foo=inr True : Sum Nat Bool} in (get x[foo])
 -- typedLCI: Prelude.!!: index too large
-
----- Recursive Type Testing:
-
--- Binary Sum
-listT :: Type
-listT = FixT "listT" (SumT UnitT $ PairT NatT $ VarT 0)
-
-nil :: Term
-nil = Roll listT (InL Unit (SumT UnitT $ PairT NatT listT))
-
-cons :: Term
-cons = Abs "x" NatT . Abs "xs" listT .
-       Roll listT $ InR (Pair (Var 1) (Var 0)) (SumT UnitT $ PairT NatT listT)
-
--- SumCase Term Term Binder Term Binder
-sumTest :: Term
-sumTest = SumCase (Unroll listT $ nil) Z "nil" (Fst $ Var 0) "x"
-
-hd :: Term
-hd = Abs "xs" listT $
-     SumCase (Unroll listT $ Var 0) Z "nil" (Fst $ Var 0) "x"
-
-consTest :: Term
-consTest = App (App cons (S Z)) (App (App cons Z) nil)
-
-hdTest :: Term
-hdTest = App hd consTest
-
--- Variant Form
-
-listTV :: Type
-listTV = FixT "listTV" (VariantT [("Nil", UnitT), ("Cons", TupleT [NatT, VarT 0])])
-
-tagNil :: Term
-tagNil = (Tag "Nil" Unit (VariantT [("Nil", UnitT), ("Cons", TupleT [NatT, listTV])]))
-
-nilV :: Term
-nilV = Roll listTV (Tag "Nil" Unit (VariantT [("Nil", UnitT), ("Cons", TupleT [NatT, listTV])]))
-
-vTerm :: Term
-vTerm = Tag "Just" Z (VariantT [("Nothing", UnitT),("Just", NatT)])
-
-variant :: Term
-variant = Abs "x" (VariantT [("Nothing", UnitT), ("Just", NatT)]) $
-          VariantCase (Var 0) [("Nothing", Nothing, Z), ("Just", Just "x", Var 0)]
-
-unroll :: Term
-unroll = Unroll (VariantT [("Nothing", UnitT), ("Just", NatT)]) vTerm
-
-variant' :: Term
-variant' = Abs "x" (VariantT [("Nothing", UnitT), ("Just", NatT)]) $
-          VariantCase unroll [("Nothing", Nothing, Z), ("Just", Just "x", Var 0)]
-
-consV :: Term
-consV = Abs "x" NatT . Abs "xs" listTV .
-       Roll listTV $ Tag "Cons" (Tuple [("0", Var 1), ("1", Var 0)]) (VariantT [("Nil", UnitT), ("Cons", TupleT [NatT, listTV])])
-
-hdV :: Term
-hdV = Abs "xs" listTV $
-      VariantCase (Unroll listTV $ Var 0) [("Nil", Nothing, Z), ("Cons", Just "y", Fst $ Var 0)]
-
-consTestV :: Term
-consTestV = App (App consV (S Z)) (App (App consV Z) nilV)
-
-hdTestV :: Term
-hdTestV = App hdV consTestV

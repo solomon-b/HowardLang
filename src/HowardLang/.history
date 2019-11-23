@@ -1,3 +1,63 @@
+:t tag Branch [tag Leaf, 0, tag Branch [tag Leaf, tag Leaf]] as mu.NatTree: Leaf | Branch [NatTree, Nat, NatTree]
+:t tag Branch [tag Leaf, 0, tag Branch [tag Leaf, 1, tag Leaf]] as mu.NatTree: Leaf | Branch [NatTree, Nat, NatTree]
+:t tag Branch [tag Leaf, 0, tag Branch [tag Leaf, 1]] as mu.NatTree: Leaf | Branch [NatTree, Nat, NatTree]
+:t tag Branch [tag Leaf, 0, tag Branch [tag Leaf, True, tag Leaf]] as mu.NatTree: Leaf | Branch [NatTree, Nat, NatTree]
+:t tag Branch [tag Leaf, 0, tag Branch [tag Leaf, 1, tag Leaf]] as mu.NatTree: Leaf | Branch [NatTree, Nat, NatTree]
+tag Branch [tag Leaf, 0, tag Branch [tag Leaf, 1, tag Leaf]] as mu.NatTree: Leaf | Branch [NatTree, Nat, NatTree]
+tag Branch [tag Leaf, 0, tag Branch [tag Leaf, 1, tag Leaf]] as mu.NatTree: Leaf | Branch [NatTree, Nat, NatTree]
+tag Branch [tag Leaf, 0, tag Branch [tag Leaf, 1, Tag Leaf]] as mu.NatTree: Leaf | Branch [NatTree, Nat, NatTree]
+tag Branch [tag Leaf, 0, tag Leaf] as mu.NatTree: Leaf | Branch [NatTree, Nat, NatTree]
+:t tag Branch [tag Leaf, 0, tag Leaf] as mu.NatTree: Leaf | Branch [NatTree, Nat, NatTree]
+:t tag Leaf as mu.NatTree: Leaf | Branch [NatTree, Nat, NatTree]
+tag Leaf as mu.NatTree: Leaf | Branch [NatTree, Nat, NatTree]
+:t (tag Cons [3, tag Cons [2, tag Cons [1, tag Nil]]] as mu.NatList: Nil | Cons [Nat, NatList])
+(tag Cons [3, tag Cons [2, tag Cons [1, tag Nil]]] as mu.NatList: Nil | Cons [Nat, NatList])
+:t (tag Cons [3, tag Cons [2, tag Cons [1, tag Nil]]] as mu.NatList: Nil | Cons [Nat, NatList])
+(tag Cons [3, tag Cons [2, tag Cons [1, tag Nil]]] as mu.NatList: Nil | Cons [Nat, NatList])
+:t (tag Cons [3, tag Cons [2, tag Cons [1, tag Nil]]] as mu.NatList: Nil | Cons [Nat, NatList])
+:t (tag Cons [3, tag Cons [2, tag Cons [1, tag Nil]]] as mu.NatList: Nil | Cons [Nat, NatList])
+(tag Cons [3, tag Cons [2, tag Cons [1, tag Nil]]] as mu.NatList: Nil | Cons [Nat, NatList])
+:t (tag Cons [3, tag Cons [2, tag Cons [1, tag Nil]]] as mu.NatList: Nil | Cons [Nat, NatList])
+:t (tag Cons [3, tag Cons [2, tag Cons [1, tag Nil]]] as mu.NatList: Nil | Cons [Nat, NatList])
+(tag Cons [3, tag Cons [2, tag Cons [1, tag Nil]]] as mu.NatList: Nil | Cons [Nat, NatList])
+let hd ( xs : (mu.NatList: Nil | Cons [Nat, NatList])) = variantCase xs of Nil => True | Cons=p => False in hd (tag Nil as (mu.NatList: Nil | Cons [Nat, NatList]))
+let hd ( xs : (mu.NatList: Nil | Cons [Nat, NatList])) = variantCase xs of Nil => True | Cons=p => False in hd (tag Nil as (mu.NatList: Nil | Cons [1, NatList]))
+:t let hd ( xs : (mu.NatList: Nil | Cons [Nat, NatList])) = variantCase xs of Nil => True | Cons=p => False in hd
+:t let hd ( xs : (mu.NatList: Nil | Cons [Nat, NatList])) = variantCase xs of Nil => True | Cons=p => False in hd
+:t let hd ( xs : (mu.NatList: Nil | Cons [Nat, NatList])) = variantCase l of Nil => True | Cons=p => False in hd
+:t let hd ( xs : (mu.NatList: Nil | Cons [Nat, NatList])) = case l of Nil => True | Cons=p => False in hd
+:t let hd ( xs : (mu.NatList: Nil | Cons [Nat, NatList])) = xs in hd
+let hd ( xs : (mu.NatList: Nil | Cons [Nat, NatList])) = xs in hd
+let hd ( xs : (mu.NatList: Nil | Cons [Nat, NatList]) = xs in hd
+let hd ( xs : (mu.NatList: Nil | Cons [Nat, NatList) = xs in hd
+(tag Cons [3, tag Cons [2, tag Cons [1, tag Nil]]] as mu.NatList: Nil | Cons [Nat, NatList])
+(tag Cons [2, tag Cons [1, tag Nil]] as mu.NatList: Nil | Cons [Nat, NatList])
+(tag Cons [1, tag Nil] as mu.NatList: Nil | Cons [Nat, NatList])
+(tag Cons [1, tag Nil] as mu.NatList: Nil | Cons [Nat, NatList])
+(tag Cons [1, tag Nil] as mu.NatList: Nil | Cons [Nat, NatList])
+tag Nil
+(tag Cons [1, tag Nil] as mu.NatList: Nil | Cons [Nat, NatList])
+(tag Nil as mu.NatList: Nil | Cons [Nat, NatList])
+(tag Nil as mu.NatList: Nil | Cons [Nat, NatList])
+tag Nil as mu.NatList: Nil | Cons [Nat, NatList]
+tag Nil as mu.NatList: Nil | Cons [Nat, NatList
+:r
+:t tag Nil as mu. ListTV: (Nil | Cons [Nat, ListTV])
+tag Nil as mu. ListTV: (Nil | Cons [Nat, ListTV])
+let f (n : Nat) (p : Bool) = S n in f
+let f (n : Nat) = S n in f
+let f (n : Nat) = S n in f 0
+let f (n : Nat) = S in f 0
+let f = (\n:Nat. S n) in f 0
+(\v:(Nothing | Just Nat). variantCase v of Nothing => False | Just=x => True) (tag Nothing as (Nothing | Just Bool))
+(\v:(Nothing | Just Nat).variantCase v of Nothing => False | Just=x => True) (tag Nothing as (Nothing | Just Bool))
+(\v:(Nothing | Just Nat).variantCase v of Nothing => False | Just=x => True) (tag Nothing as (Nothing | Just Nat))
+:t (\v:(Nothing | Just Nat).variantCase v of Nothing => False | Just=x => True)
+(\v:(Nothing | Just Nat).variantCase v of Nothing => False | Just=x => True)
+tag Nothing as (Nothing | Just Nat)
+tag Just 1 as (Nothing | Just Nat)
+tag Just 1 as (Nothing | Just nat)
+(\x:Nat.x)
 (\x:Nat.x)
 (\\x:Nat.x)
 (x:Nat.x)

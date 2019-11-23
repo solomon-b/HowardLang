@@ -101,8 +101,8 @@ pretty t = runReader (f t) []
       pure $ "sumCase " ++ t1' ++ " of " ++
              "inl " ++ vL ++ " => " ++ tL' ++ " | "  ++
              "inr " ++ vR ++ " => " ++ tR'
-    f (Tag tag Unit _) = pure tag
-    f (Tag tag t1 _) = pure $ tag ++ " " ++ pretty t1
+    f (Tag tag Unit) = pure tag
+    f (Tag tag t1) = pure $ tag ++ " " ++ pretty t1
     f (VariantCase t1 cases) = do
       ctx <- ask
       t1' <- f t1

@@ -1,28 +1,32 @@
 module HowardLang.Parser.Token where
 
+import Control.Applicative
 import Control.Monad.Reader
 
-import Text.Megaparsec
-import Text.Megaparsec.Char
-import qualified Text.Megaparsec.Char.Lexer as L
+import Text.Parser.Combinators (Parsing(..))
+
+import qualified Text.Megaparsec.Char
+import qualified Text.Megaparsec.Char.Lexer
+import qualified Text.Parser.Combinators
+import qualified Text.Parser.Token
 
 import HowardLang.Parser.Combinators
 
 
-sc :: Parser ()
-sc = L.space space1 lineCmnt blockCmnt
-  where
-    lineCmnt  = L.skipLineComment "--"
-    blockCmnt = L.skipBlockComment "{-" "-}"
-
-lexeme :: Parser a -> Parser a
-lexeme = L.lexeme sc
+between :: Parser bra -> Parser ket -> Parser a -> Parser a
+between = Text.Parser.Combinators.between
 
 symbol :: String -> Parser String
-symbol = L.symbol sc
+symbol = Text.Megaparsec.Char.Lexer.symbol whitespace
 
 quoted :: Parser a -> Parser a
 quoted = between (symbol "\"") (symbol "\"")
+
+whitespace :: Parser ()
+whitespace = Text.Parser.Token.whiteSpace
+
+lexeme :: Parser a -> Parser a
+lexeme = Text.Megaparsec.Char.Lexer.lexeme whitespace
 
 parens :: Parser a -> Parser a
 parens = between (symbol "(") (symbol ")")
@@ -40,7 +44,7 @@ parensOpt :: Parser a -> Parser a
 parensOpt p = parens p <|> p
 
 integer :: Parser Integer
-integer = lexeme L.decimal
+integer = lexeme Text.Parser.Token.decimal
 
 comma :: Parser ()
 comma = void $ symbol ","
@@ -70,7 +74,7 @@ equal :: Parser ()
 equal = void $ symbol "="
 
 rword :: String -> Parser ()
-rword w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
+rword w = (lexeme . try) (Text.Megaparsec.Char.string w *> notFollowedBy Text.Megaparsec.Char.alphaNumChar)
 
 rws :: [String]
 rws = [ "if"
@@ -99,13 +103,14 @@ rws = [ "if"
       , "variantCase"
       , "fix"
       , "mu"
+      , "tag"
       ]
 
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)
   where
     p :: Parser String
-    p = (:) <$> letterChar <*> many alphaNumChar
+    p = (:) <$> Text.Megaparsec.Char.letterChar <*> many Text.Megaparsec.Char.alphaNumChar
     check :: String -> Parser String
     check str = if str `elem` rws
                  then fail $ "keyword " ++ show str ++ " cannot be an identifier"
@@ -115,10 +120,10 @@ constructor :: Parser String
 constructor = (lexeme . try) (p >>= check)
   where
     p :: Parser String
-    p = (:) <$> upperChar <*> many alphaNumChar
+    p = (:) <$> Text.Megaparsec.Char.upperChar <*> many Text.Megaparsec.Char.alphaNumChar
     check :: String -> Parser String
     check str = do
-      ctx <- ask
+      ctx <- asks _bindings
       if str `elem` ctx ++ rws
         then fail $ show str ++ " is already bound"
         else pure str

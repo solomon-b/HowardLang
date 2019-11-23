@@ -1,5 +1,6 @@
 module HowardLang.Typechecker where
 
+import Control.Applicative
 import Control.Monad.Except
 import Control.Monad.Identity
 import Control.Monad.Reader
@@ -62,9 +63,19 @@ sequencePattern (_, Nothing, _) = Nothing
 checkTotal :: MonadError Err m => [(Tag, Maybe Binder, Term)] -> [(Tag, Type)] -> m ()
 checkTotal xs ys = if length xs /= length ys then throwTypeError' "Error: Pattern Match Non-Total" else pure ()
 
+findRec :: Type -> Maybe Type
+findRec (FuncT ty1 ty2) = findRec ty1 <|> findRec ty2
+findRec (PairT ty1 ty2) = findRec ty1 <|> findRec ty2
+findRec (TupleT tys) = foldr (<|>) Nothing (fmap findRec tys)
+findRec (RecordT tys) = foldr (<|>) Nothing  $ fmap (findRec . snd) tys
+findRec (SumT ty1 ty2) = findRec ty1 <|> findRec ty2
+findRec (VariantT tys) = foldr (<|>) Nothing  $ fmap (findRec . snd) tys
+findRec ty@(FixT _ _) = Just ty
+findRec _ = Nothing
+
 typecheck ::
   (MonadError Err m , MonadReader Context m) => Term -> m Type
-typecheck (Var i) = asks (flip getBinding i)
+typecheck (Var i) = asks (`getBinding` i)
 typecheck (Abs var ty t2) = do
   ty2 <- bindLocalVar var ty t2
   pure $ FuncT ty ty2
@@ -98,6 +109,13 @@ typecheck (Case n z v s) = typecheck n >>= \case
       else throwTypeError z zTy sTy
   ty -> throwTypeError n ty NatT
 typecheck Unit = pure UnitT
+typecheck (As t@(Tag tag t1) ty) = typecheck t1 >>= \ty1 ->
+  case ty of
+    (VariantT tys) ->
+      case lookup tag tys of
+        Just ty' | ty' == ty1 -> pure ty
+        _ -> throwTypeError t ty1 ty -- TODO: Improve this error, it does not reference the sum type.
+    _ -> error $ "Foo " ++ show ty -- throwTypeError t ty1 ty
 typecheck (As t1 ty) =
   typecheck t1 >>= \ty1' ->
     if ty1' == ty
@@ -116,7 +134,7 @@ typecheck (Snd (Pair _ t2)) = typecheck t2
 typecheck (Snd t) = typecheck t >>= \case
   (PairT _ ty2) -> pure ty2
   ty -> throwTypeError' $ "Expected a Pair but got: " ++ show ty
-typecheck (Tuple ts) = traverse (typecheck . snd) ts >>= pure . TupleT
+typecheck (Tuple ts) = TupleT <$> traverse (typecheck . snd) ts
 typecheck (Get (Tuple ts) v) =
   case lookup v ts of
     Just t -> typecheck t
@@ -149,38 +167,39 @@ typecheck (SumCase t tL vL tR vR) = typecheck t >>= \case
     then pure tyR
     else throwTypeError tL tyR tyL
   ty -> throwTypeError' $ "Expected a Sum Type but got: " ++ show ty
-typecheck t@(Tag tag t1 ty) = typecheck t1 >>= \ty1 ->
-  case ty of
-    VariantT tys ->
-      case lookup tag tys of
-        Just ty' | ty' == ty1 -> pure ty
-        _ -> throwTypeError t ty1 ty -- TODO: Improve this error, it does not reference the sum type.
-    _ -> error "Foo" -- throwTypeError t ty1 ty
 typecheck (Fix t) = typecheck t >>= \case
   (FuncT ty1 ty2) -> if ty1 == ty2 then pure ty2 else throwTypeError t ty2 ty1
   ty  -> throwTypeError' $ "Type Error: " ++ show ty ++ " is not a function type"
+--typecheck t@(Tag tag t1 ty) = typecheck t1 >>= \ty1 ->
+--  case ty of
+--    VariantT tys ->
+--      case lookup tag tys of
+--        Just ty' | ty' == ty1 -> pure ty
+--        _ -> throwTypeError t ty1 ty -- TODO: Improve this error, it does not reference the sum type.
+--    _ -> error "Foo" -- throwTypeError t ty1 ty
 typecheck (VariantCase t1 cases) = typecheck t1 >>= \case
   (VariantT casesT) -> do
     let cases' = mapMaybe sequencePattern cases
     checkTotal cases casesT
     types <- traverse (bindLocalTags casesT) cases'
     if allEqual types
-    then pure $ types !! 0
+    then pure $ head types
     else throwTypeError' $ "Type mismatch between cases: " ++ show types
   ty -> throwTypeError' $ "Expected a Variant Type but got: " ++ show ty
 typecheck (Unroll u@(FixT _ t1) term) = do
   let u' = typeSubstTop u t1
   ty1 <- typecheck term
-  if (ty1 == u)
+  if ty1 == u
     then pure u'
     else throwTypeError' "Type Error: Temp Error bad Unroll"
 typecheck (Unroll _ t1) = typecheck t1
-typecheck (Roll u@(FixT _ t1) term) = do
-  let u' = typeSubstTop u t1
+typecheck (Roll u@(FixT _ ty) term) = do
+  let u' = typeSubstTop u ty
   ty1 <- typecheck term
-  if (ty1 == u')
+  if ty1 == u'
     then pure u
-    else throwTypeError' $ "Type Error: " ++ show u ++ " != " ++ show ty1
+    else throwTypeError' $ "Type Error: " ++ show u' ++ " != " ++ show ty1
+typecheck Tag{} = error "fck"
 
 
 -------------------------
@@ -225,7 +244,7 @@ throwTypeError t1 ty1 ty2 = throwError . T . TypeError $
   "Type Error:\n\r" ++
   "Expected Type: " ++ show ty2 ++ "\n\r" ++
   "Actual Type: "   ++ show ty1 ++ "\n\r" ++
-  "For Term: "      ++ pretty t1 
+  "For Term: "      ++ pretty t1
 
 throwTypeError' :: MonadError Err m => String -> m a
 throwTypeError' = throwError . T . TypeError
