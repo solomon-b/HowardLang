@@ -71,7 +71,8 @@ Rec Type NatList = Nil | Cons [Nat, VarT 0]
 Branch (Leaf , 0 , Branch (Leaf , S Z , Leaf))
 
 λ> :t tag Branch [tag Leaf, 0, tag Branch [tag Leaf, 1, tag Leaf]] as mu.NatTree: Leaf | Branch [NatTree, Nat, NatTree]
-Rec Type NatTree = Leaf | Branch [VarT 0, Nat, VarT 0]```
+Rec Type NatTree = Leaf | Branch [VarT 0, Nat, VarT 0]
+```
 
 #### Functions:
 ```ml
