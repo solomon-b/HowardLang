@@ -109,7 +109,7 @@ pTerm = foldl1 App <$> (  pIf
                       <|> parens pTerm
                        ) `sepBy1` whitespace
 pMain :: Parser Term
-pMain = pTerm <* eof
+pMain = whitespace *> pTerm <* eof
 
 -----------
 -- Types --
@@ -460,4 +460,9 @@ pFix = rword "fix" *> (Fix <$> pTerm)
 
 -- TODO: Figure out how to prevent infinite recursion if I remove the reserved word.
 pGet :: Parser Term
-pGet = rword "get" *> (Get <$> pTerm <*> squareBracket identifier)
+pGet = do
+  rword "get"
+  t1 <- pTerm
+  dot
+  var <- identifier <|> (show <$> integer)
+  pure $ Get t1 var

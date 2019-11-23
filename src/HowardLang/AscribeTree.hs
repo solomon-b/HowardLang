@@ -91,7 +91,7 @@ ascribeTags as = f
 -----------------------------
 
 stripAscriptions :: Term -> Term
-stripAscriptions t = f t
+stripAscriptions = f
   where
     f = \case
       (As t1 _)                   -> f t1

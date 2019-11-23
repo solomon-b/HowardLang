@@ -76,3 +76,4 @@ tests:
     - HowardLang
     - hedgehog
     - hspec
+    - raw-strings-qq

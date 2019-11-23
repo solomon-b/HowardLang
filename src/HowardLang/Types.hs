@@ -85,25 +85,25 @@ data Type
   | VariantT [(Tag, Type)]
   | FixT Varname Type
   | VarT DeBruijn
-  deriving (Data, Eq)
+  deriving (Show, Data, Eq)
 
-instance Show Type where
-  show BoolT = "Bool"
-  show NatT  = "Nat"
-  show UnitT = "Unit"
-  show (FuncT f1@(FuncT _ _) f2@(FuncT _ _)) = "(" ++ show f1 ++ ")" ++
-                                               " -> " ++ "(" ++ show f2 ++ ")"
-  show (FuncT f1@(FuncT _ _) t2) = "(" ++ show f1 ++ ")" ++ " -> " ++ show t2
-  show (FuncT t1 f2@(FuncT _ _)) = show t1 ++ " -> " ++ "(" ++ show f2 ++ ")"
-  show (FuncT t1 t2) = show t1 ++ " -> " ++ show t2
-  show (PairT t1 t2) = "<" ++ show t1 ++ ", " ++ show t2 ++ ">"
-  show (TupleT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ show <$> ts in "[" ++ tys ++ "]"
-  show (RecordT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ show <$> ts in "{" ++ tys ++ "}"
-  show (SumT left right) = "Sum " ++ show left ++ " " ++ show right
-  show v@(VariantT _) = showVariant v
-  -- TODO: Write a proper show instance for FixT
-  show (FixT var ty) = "Rec Type " ++ var ++ " = " ++ show ty
-  show (VarT i) = "VarT " ++ show i
+--instance Show Type where
+--  show BoolT = "Bool"
+--  show NatT  = "Nat"
+--  show UnitT = "Unit"
+--  show (FuncT f1@(FuncT _ _) f2@(FuncT _ _)) = "(" ++ show f1 ++ ")" ++
+--                                               " -> " ++ "(" ++ show f2 ++ ")"
+--  show (FuncT f1@(FuncT _ _) t2) = "(" ++ show f1 ++ ")" ++ " -> " ++ show t2
+--  show (FuncT t1 f2@(FuncT _ _)) = show t1 ++ " -> " ++ "(" ++ show f2 ++ ")"
+--  show (FuncT t1 t2) = show t1 ++ " -> " ++ show t2
+--  show (PairT t1 t2) = "<" ++ show t1 ++ ", " ++ show t2 ++ ">"
+--  show (TupleT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ show <$> ts in "[" ++ tys ++ "]"
+--  show (RecordT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ show <$> ts in "{" ++ tys ++ "}"
+--  show (SumT left right) = "Sum " ++ show left ++ " " ++ show right
+--  show v@(VariantT _) = showVariant v
+--  -- TODO: Write a proper show instance for FixT
+--  show (FixT var ty) = "Rec Type " ++ var ++ " = " ++ show ty
+--  show (VarT i) = "VarT " ++ show i
 
 showVariant :: Type -> String
 showVariant (VariantT tys) = unwords . intersperse "|" $ f <$> tys

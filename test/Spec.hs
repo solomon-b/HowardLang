@@ -1,16 +1,19 @@
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 import Control.Monad.Identity
 
+import Text.RawString.QQ
 import Test.Hspec
-import Hedgehog (check)
+-- import Hedgehog (check)
 
 import HowardLang.Parser
 import HowardLang.Types
 import HowardLang.Typechecker
+import HowardLang.AscribeTree
 import HowardLang.Interpreters
 
 
-import Roundtrip
+-- import Roundtrip
 
 ----------------------
 --- Test Machinery ---
@@ -41,17 +44,17 @@ parseFailed _ = True
 specParseYields :: String -> Term -> SpecWith ()
 specParseYields s term =
   it ("parses " ++ show s ++ " as " ++ show term) $
-    run pTerm s `shouldSatisfy` yields term
+    run pMain s `shouldSatisfy` yields term
 
 specParseFails :: String -> SpecWith ()
 specParseFails s =
   it ("fails to parse " ++ show s) $
-    run pTerm s `shouldSatisfy` parseFailed
+    run pMain s `shouldSatisfy` parseFailed
 
 specTypecheckYields :: Term -> Type -> SpecWith ()
 specTypecheckYields t ty =
   it ("typechecks " ++ show t ++ " as " ++ show ty) $
-    (runTypecheckM [] (typecheck t)) `shouldSatisfy` yields ty
+    runTypecheckM [] (typecheck . ascribeRolls $ t) `shouldSatisfy` yields ty
 
 specEvalYields :: Term -> Term -> SpecWith ()
 specEvalYields t1 t2 =
@@ -91,6 +94,7 @@ main = do
 
 parseTests :: [(String, Term, Term)]
 parseTests =
+  -- Base Types
   [ ( "True", Tru, Tru)
   , ( "False", Fls, Fls)
   , ( "Z", Z, Z)
@@ -99,50 +103,142 @@ parseTests =
   , ( "1", S Z, S Z)
   , ( "2", S (S Z), S (S Z))
   , ( "Unit", Unit, Unit)
-  , ( "<0, True>", Pair Z Tru, Pair Z Tru)
+  ] ++
+  -- 'Container' Types
+  [ ( "<0, True>", Pair Z Tru, Pair Z Tru)
   , ( "<0, <0, True>>", Pair Z (Pair Z Tru), Pair Z (Pair Z Tru))
-  , ( "\\n:Nat.n", Abs "n" NatT (Var 0), Abs "n" NatT (Var 0))
-  , ( "(\\n:Nat.n)", Abs "n" NatT (Var 0), Abs "n" NatT (Var 0))
-  , ( "(\\m:Nat.\\n:Nat.n)", Abs "m" NatT $ Abs "n" NatT (Var 0), Abs "m" NatT $ Abs "n" NatT (Var 0))
-  , ( "(\\m:Nat.\\n:Nat.m)", Abs "m" NatT $ Abs "n" NatT (Var 1), Abs "m" NatT $ Abs "n" NatT (Var 1))
-  , ( "(\\p:Bool.\\m:Nat.\\n:Nat.p)"
+  , ( "fst <0, <0, True>>", Fst (Pair Z (Pair Z Tru)), Z)
+  , ( "snd <0, <0, True>>", Snd (Pair Z (Pair Z Tru)), Pair Z Tru)
+  , ( "[1, True, Unit]", Tuple [("0", S Z),("1", Tru),("2", Unit)], Tuple [("0", S Z),("1", Tru),("2", Unit)])
+  , ( "{foo=1, bar=True}", Record [("foo", S Z),("bar", Tru)], Record [("foo", S Z),("bar", Tru)])
+  , ( "inl Unit : Sum Unit Bool", InL Unit (SumT UnitT BoolT), InL Unit (SumT UnitT BoolT))
+  , ( "inr True : Sum Unit Bool", InR Tru (SumT UnitT BoolT), InR Tru (SumT UnitT BoolT))
+  , ( "tag Just 1 as Nothing | Just Nat"
+    , As (Tag "Just" (S Z)) (VariantT [("Nothing", UnitT), ("Just", NatT)])
+    , Tag "Just" (S Z)
+    )
+  , ( "tag Nothing as Nothing | Just Nat"
+    , As (Tag "Nothing" Unit) (VariantT [("Nothing", UnitT), ("Just", NatT)])
+    , Tag "Nothing" Unit)
+  ] ++
+  -- Accesors
+  [ ( "fst <0, <0, True>>", Fst (Pair Z (Pair Z Tru)), Z)
+  , ( "snd <0, <0, True>>", Snd (Pair Z (Pair Z Tru)), Pair Z Tru)
+  , ( "get [1, True, Unit].0", Get (Tuple [("0", S Z),("1", Tru),("2", Unit)]) "0", S Z)
+  , ( "get [1, True, Unit].2", Get (Tuple [("0", S Z),("1", Tru),("2", Unit)]) "2", Unit)
+  , ( "get {foo=Unit, bar=True}.foo", Get (Record [("foo", Unit), ("bar", Tru)]) "foo", Unit)
+  , ( "get {foo=Unit, bar=True}.bar", Get (Record [("foo", Unit), ("bar", Tru)]) "bar", Tru)
+  ] ++
+  -- Abstraction
+  [ ( [r| \n:Nat.n |], Abs "n" NatT (Var 0), Abs "n" NatT (Var 0))
+  , ( [r| (\n:Nat.n) |], Abs "n" NatT (Var 0), Abs "n" NatT (Var 0))
+  , ( [r| (\m:Nat.\n:Nat.n) |], Abs "m" NatT $ Abs "n" NatT (Var 0), Abs "m" NatT $ Abs "n" NatT (Var 0))
+  , ( [r| (\m:Nat.\n:Nat.m) |], Abs "m" NatT $ Abs "n" NatT (Var 1), Abs "m" NatT $ Abs "n" NatT (Var 1))
+  , ( [r|(\p:Bool.\m:Nat.\n:Nat.p)|]
     , Abs "p" BoolT $ Abs "m" NatT $ Abs "n" NatT (Var 2)
     , Abs "p" BoolT $ Abs "m" NatT $ Abs "n" NatT (Var 2))
-  , ( "(\\f:Nat->Bool.\\n:Nat.f n)"
+  , ( [r|(\p:Bool. (\q:Bool.q) p)|]
+    , Abs "p" BoolT (App (Abs "q" BoolT (Var 0)) (Var 0))
+    , Abs "p" BoolT (App (Abs "q" BoolT (Var 0)) (Var 0)))
+  , ( [r|(\p:Bool. (\q:Bool.q) p) True|]
+    , App (Abs "p" BoolT (App (Abs "q" BoolT (Var 0)) (Var 0))) Tru
+    , Tru)
+  , ( [r|(\f:Nat->Bool.\n:Nat.f n)|]
     , Abs "f" (FuncT NatT BoolT) $ Abs "n" NatT (App (Var 1) (Var 0))
     , Abs "f" (FuncT NatT BoolT) $ Abs "n" NatT (App (Var 1) (Var 0)))
-  , ( "(\\n:Nat.case n of Z => True | (S m) => False)"
+  , ( [r|(\n:Nat.case n of Z => True | (S m) => False)|]
     , Abs "n" NatT (Case (Var 0) Tru "m" Fls)
     , Abs "n" NatT (Case (Var 0) Tru "m" Fls))
-  , ( "(\\n:Nat.case n of Z => 0 | (S m) => n)"
+  , ( [r|(\n:Nat.case n of Z => 0 | (S m) => n)|]
     , Abs "n" NatT (Case (Var 0) Z "m" (Var 1))
     , Abs "n" NatT (Case (Var 0) Z "m" (Var 1)))
-  , ( "(\\n:Nat.case n of Z => 0 | (S m) => m)"
+  , ( [r|(\n:Nat.case n of Z => 0 | (S m) => m)|]
     , Abs "n" NatT (Case (Var 0) Z "m" (Var 0))
     , Abs "n" NatT (Case (Var 0) Z "m" (Var 0)))
-  , ( "(True as Bool)", As Tru BoolT, Tru)
+  ] ++
+  -- Let
+  [ ( "let x = 0 in x", Let "x" Z (Var 0), Z)
+  , ( "let f = (\\x:Nat.x) in f", Let "f" (Abs "x" NatT (Var 0)) (Var 0), Abs "x" NatT (Var 0))
+  , ( "let f = (\\x:Nat.x) in f Z", Let "f" (Abs "x" NatT (Var 0)) (App (Var 0) Z), Z)
+  , ( "let f (x : Nat) = x in f", Let "f" (Abs "x" NatT (Var 0)) (Var 0), Abs "x" NatT (Var 0))
+  , ( "let f (x : Nat) = x in f Z", Let "f" (Abs "x" NatT (Var 0)) (App (Var 0) Z), Z)
+  , ( "let f (x : Nat) (p : Bool) = x in f Z"
+    , Let "f" (Abs "x" NatT (Abs "p" BoolT (Var 1))) (App (Var 0) Z), Abs "p" BoolT Z)
+  ] ++
+  -- Ascription
+  [ ( "(True as Bool)", As Tru BoolT, Tru)
   , ( "(Z as Nat)", As Z NatT, Z)
   , ( "(2 as Nat)", As (S $ S Z) NatT, S (S Z))
-  , ( "\\n:Nat.(n as Nat)", Abs "n" NatT (As (Var 0) NatT), Abs "n" NatT (As (Var 0) NatT))
+  , ( "\\n:Nat.(n as Nat)", Abs "n" NatT (As (Var 0) NatT), Abs "n" NatT (Var 0))
   , ( "(\\f:Nat->Bool.\\n:Nat.((f n) as Bool))"
     , Abs "f" (FuncT NatT BoolT) $ Abs "n" NatT (As (App (Var 1) (Var 0)) BoolT)
-    , Abs "f" (FuncT NatT BoolT) $ Abs "n" NatT (As (App (Var 1) (Var 0)) BoolT)
+    , Abs "f" (FuncT NatT BoolT) $ Abs "n" NatT (App (Var 1) (Var 0))
     )
   , ( "(\\f:Nat->Bool.\\n:Nat.((f n) as Bool)) (\\g:Nat.True)"
     , App (Abs "f" (FuncT NatT BoolT) $ Abs "n" NatT (As (App (Var 1) (Var 0)) BoolT)) (Abs "g" NatT Tru)
-    , Abs "n" NatT (As (App (Abs "g" NatT Tru) (Var 0)) BoolT)
+    , Abs "n" NatT (App (Abs "g" NatT Tru) (Var 0))
     )
   , ( "(\\f:Nat->Bool.\\n:Nat.((f n) as Bool)) (\\g:Nat.True) Z"
     , App (App (Abs "f" (FuncT NatT BoolT) $ Abs "n" NatT (As (App (Var 1) (Var 0)) BoolT)) (Abs "g" NatT Tru)) Z
     , Tru
     )
-  , ( "\\n:Nat.let f = (\\m:Nat.S m) in n"
+  ] ++
+  --  If Statements
+  [ ( "if: True then: 1 else: 0", If Tru (S Z) Z, S Z)
+  , ( "if: False then: 1 else: 0", If Fls (S Z) Z, Z)
+  , ( "if: ((\\p:Bool.p) True) then: 1 else: 0", If (App (Abs "p" BoolT (Var 0)) Tru) (S Z) Z, S Z)
+  , ( "\\p:Bool.if: p then: 1 else: 0"
+    , Abs "p" BoolT (If (Var 0) (S Z) Z)
+    , Abs "p" BoolT (If (Var 0) (S Z) Z))
+  , ( "(\\p:Bool.if: p then: 1 else: 0) True"
+    , App (Abs "p" BoolT (If (Var 0) (S Z) Z)) Tru
+    , S Z)
+  ] ++
+  -- Nat Case
+  [ ( "case Z of Z => True | (S m) => False", Case Z Tru "m" Fls, Tru)
+  , ( "case 1 of Z => True | (S m) => False", Case (S Z) Tru "m" Fls, Fls)
+  , ( "case 2 of Z => Z | (S m) => m", Case (S $ S Z) Z "m" (Var 0), S Z)
+  ] ++
+  -- Sum Case
+  [ ( "sumCase (inr True : Sum Unit Bool) of inl l => False | inr r => True"
+    , SumCase (InR Tru (SumT UnitT BoolT)) Fls "l" Tru "r"
+    , Tru)
+  , ( "sumCase (inl Unit : Sum Unit Bool) of inl l => False | inr r => True"
+    , SumCase (InL Unit (SumT UnitT BoolT)) Fls "l" Tru "r"
+    , Fls)
+  ] ++
+  -- Variant Case
+  [ ( "variantCase (tag Nothing as Nothing | Just Nat) of Nothing => False | Just=x => True"
+    , VariantCase (As (Tag "Nothing" Unit) (VariantT [("Nothing", UnitT),("Just", NatT)]))
+      [("Nothing", Nothing, Fls), ("Just", Just "x", Tru)]
+    , Fls)
+  , ( "variantCase (tag Just Z as Nothing | Just Nat) of Nothing => False | Just=x => True"
+    , VariantCase (As (Tag "Just" Z) (VariantT [("Nothing", UnitT),("Just", NatT)]))
+      [("Nothing", Nothing, Fls), ("Just", Just "x", Tru)]
+    , Tru)
+  , ( "variantCase (tag Just 1 as Nothing | Just Nat) of Nothing => Z | Just=x => x"
+    , VariantCase (As (Tag "Just" (S Z)) (VariantT [("Nothing", UnitT),("Just", NatT)]))
+      [("Nothing", Nothing, Z), ("Just", Just "x", Var 0)]
+    , S Z)
+  ] ++
+  -- Recursive Functions
+  [ ( [r|let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in isEven 4 |]
+      , (Let "isZero" (Abs "n" NatT (Case (Var 0) Tru "m" Fls)) (Let "pred" (Abs "n" NatT (Case (Var 0) Z "m" (Var 0))) (Let "isEven" (Fix (Abs "rec" (FuncT NatT BoolT) (Abs "n" NatT (If (App (Var 3) (Var 0)) Tru (If (App (Var 3) (App (Var 2) (Var 0))) Fls (App (Var 1) (App (Var 2) (App (Var 2) (Var 0))))))))) (App (Var 0) (S (S (S (S Z))))))))
+      , Tru)
+      ] ++
+  -- Recursive Types
+  [ ([r|(tag Cons [3, tag Cons [2, tag Cons [1, tag Nil]]] as mu.NatList: Nil | Cons [Nat, NatList])|]
+    , Roll (FixT "NatList" (VariantT [("Nil",UnitT),("Cons",TupleT [NatT,VarT 0])])) (Tag "Cons" (Tuple [("0",S (S (S Z))),("1",Tag "Cons" (Tuple [("0",S (S Z)),("1",Tag "Cons" (Tuple [("0",S Z),("1",Tag "Nil" Unit)]))]))]))
+    , Roll (FixT "NatList" (VariantT [("Nil",UnitT),("Cons",TupleT [NatT,VarT 0])])) (Tag "Cons" (Tuple [("0",S (S (S Z))),("1",Tag "Cons" (Tuple [("0",S (S Z)),("1",Tag "Cons" (Tuple [("0",S Z),("1",Tag "Nil" Unit)]))]))])))
+  ] ++
+  -- Mixed Expressions
+  [ ( "\\n:Nat.let f = (\\m:Nat.S m) in n"
     , Abs "n" NatT $ Let "f" (Abs "m" NatT (S (Var 0))) (Var 1)
     , Abs "n" NatT $ Let "f" (Abs "m" NatT (S (Var 0))) (Var 1)
     )
   , ( "\\n:Nat.let f = (\\m:Nat.S m) in (n as Nat)"
     , Abs "n" NatT $ Let "f" (Abs "m" NatT (S (Var 0))) (As (Var 1) NatT)
-    , Abs "n" NatT $ Let "f" (Abs "m" NatT (S (Var 0))) (As (Var 1) NatT)
+    , Abs "n" NatT $ Let "f" (Abs "m" NatT (S (Var 0))) (Var 1)
     )
   , ( "\\n:Nat.let f = (\\m:Nat.S m) in f n"
     , Abs "n" NatT $ Let "f" (Abs "m" NatT (S (Var 0))) (App (Var 0) (Var 1))
@@ -173,10 +269,6 @@ parseTests =
     )
   , ( "fst <True, False>", Fst $ Pair Tru Fls, Tru)
   , ( "snd <True, False>", Snd $ Pair Tru Fls, Fls)
-  , ( "\\p:Bool.if: p then: 1 else: 0"
-    , Abs "p" BoolT (If (Var 0) (S Z) Z)
-    , Abs "p" BoolT (If (Var 0) (S Z) Z)
-    )
   , ( "\\p:Bool.if: p then: (\\x:Nat.p) else: (\\x:Nat.True)"
     , Abs "p" BoolT (If (Var 0) (Abs "x" NatT (Var 1)) (Abs "x" NatT Tru))
     , Abs "p" BoolT (If (Var 0) (Abs "x" NatT (Var 1)) (Abs "x" NatT Tru)))
@@ -214,6 +306,7 @@ parseTests =
           (If (Var 0) (S Z) Z)) (App (Var 0) (Var 1)))) Fls)
     , Z
     )
+
   ]
 
 {-
