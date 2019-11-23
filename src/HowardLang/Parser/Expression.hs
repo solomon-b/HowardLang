@@ -100,7 +100,7 @@ pValues :: Parser Term
 pValues = pTuple <|> pRecord <|> pPair <|> pUnit <|> pBool <|> pNat <|> pPeano <|> pVar
 
 pStmts :: Parser Term
-pStmts = pLetRec <|> pFix <|> pGet <|> pVariantCase <|> pTag <|> pSumCase <|> pInR <|> pInL <|> pCase <|> pAbs <|> pLet <|> pAs <|> pFst <|> pSnd
+pStmts = pLetRec <|> pFix <|> pGet <|> pVariantCase <|> pTag <|> pSumCase <|> pInX <|> pCase <|> pAbs <|> pLet <|> pAs <|> pFst <|> pSnd
 
 pTerm :: Parser Term
 pTerm = foldl1 App <$> (  pIf
@@ -284,8 +284,7 @@ pIf = do
   rword "then" *> colon
   t2 <- pTerm
   rword "else" *> colon
-  t3 <- pTerm
-  pure $ If t1 t2 t3
+  If t1 t2 <$> pTerm
 
 pPair :: Parser Term
 pPair = angleBracket $ Pair <$> pTerm <* symbol "," <*> pTerm
@@ -337,21 +336,11 @@ pFst = rword "fst" *> (Fst <$> pTerm)
 pSnd :: Parser Term
 pSnd = rword "snd" *> (Snd <$> pTerm)
 
-pInL :: Parser Term
-pInL = do
-  rword "inl"
-  t1 <- pTerm
-  colon
-  ty <- parseType
-  pure $ InL t1 ty
-
-pInR :: Parser Term
-pInR = do
-  rword "inr"
-  t1 <- pTerm
-  colon
-  ty <- parseType
-  pure $ InR t1 ty
+pInX :: Parser Term
+pInX = p InL "inl" <|> p InR "inr"
+  where
+    p :: (Term -> Type -> Term) -> Varname -> Parser Term
+    p trm lbl = rword lbl *> (trm <$> pTerm <* colon <*> parseType)
 
 pSumCase :: Parser Term
 pSumCase = do
