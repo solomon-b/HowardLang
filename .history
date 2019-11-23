@@ -1,3 +1,7 @@
+:t let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in isEven 4
+let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in isEven 4
+:t variantCase (tag Just 1 as Nothing | Just Nat) of Nothing => Z | Just=x => x
+variantCase (tag Just 1 as Nothing | Just Nat) of Nothing => Z | Just=x => x
 (tag Cons [3, tag Cons [2, tag Cons [1, tag Nil]]] as mu.NatList: Nil | Cons [Nat, NatList])
 (tag Cons [3, tag Cons [2, tag Cons [1, tag Nil]]] as mu.NatList: Nil | Cons [Nat, NatList]))
   \p:Nat.p
@@ -94,7 +98,3 @@ True
 :t (\x:(Nothing | Just Nat).variantCase x of Nothing => 0 | Just=y => y) (tag Nothing as (Nothing | Just Nat))
 :t (\x:(Nothing | Just Nat).variantCase x of Nothing => 0 | Just=y => y)
 (\x:(Nothing | Just Nat).variantCase x of Nothing => 0 | Just=y => y)
-let f (n : Nat) (p : Bool) = S n in f
-let f (n : Nat) (p : Bool) = S n in f
-let f (n : Nat) (p : Bool) = S n in f 2
-let f (n : Nat) = S n in f 2

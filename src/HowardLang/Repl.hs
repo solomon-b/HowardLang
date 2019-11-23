@@ -86,7 +86,7 @@ typeof strs =
   let ty = do
         term <- ascribeRolls <$> runParse pMain (unwords strs)
         --pure $ show term
-        show <$> runTypecheckM [] (typecheck term)
+        pretty <$> runTypecheckM [] (typecheck term)
   in liftIO $ either (putStrLn . showE) putStrLn ty
 
 help :: a -> Repl ()

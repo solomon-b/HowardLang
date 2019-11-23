@@ -46,33 +46,6 @@ data Term
   | Unroll Type Term
   deriving (Show, Eq)
 
-
---instance Show Term where
---  show (Var i) = "idx " ++ show i
---  show (Abs v ty t1) = "(λ " ++ v ++ " : " ++ show ty ++ ". " ++ show t1 ++ ")"
---  show (App t1 t2) = "(eval " ++ show t1 ++ " " ++ show t2 ++ ")"
---  show Tru = "True"
---  show Fls = "False"
---  show (If t1 t2 t3) = "if: " ++ show t1 ++ " then: " ++ show t2 ++ " else: " ++ show t3
---  show Z = "0"
---  show (S t) = "S " ++ show t
---  show (Case t1 t2 v t3) = "case "   ++ show t1 ++ " of:" ++
---                           " Z => " ++ show t2 ++ " | "  ++
---                           " S "    ++ v       ++ " => " ++ show t3
---  show Unit = "Unit"
---  show (As t1 ty) = show t1 ++ " as " ++ show ty
---  show (Let v t1 t2) = "Let " ++ v ++ " = " ++ show t1 ++ " in " ++ show t2
---  show (Pair t1 t2) = "{" ++ show t1 ++ ", " ++ show t2 ++ "}"
---  show (Fst t) = "fst " ++ show t
---  show (Snd t) = "snd " ++ show t
---  show (Tuple xs) = "<" ++ intersperse ',' (unwords (show <$> xs)) ++ ">"
---  show (Get t1 t2) = show t2 ++ "[" ++ show t1 ++ "]"
-{-
--- TODO: Learn how to use `prettyprinter` and replace my bespoke printer
-instance Pretty Term where
-  pretty = viaShow
--}
-
 data Type
   = FuncT Type Type
   | BoolT
@@ -85,36 +58,7 @@ data Type
   | VariantT [(Tag, Type)]
   | FixT Varname Type
   | VarT DeBruijn
-  deriving (Data, Eq)
-
-instance Show Type where
-  show BoolT = "Bool"
-  show NatT  = "Nat"
-  show UnitT = "Unit"
-  show (FuncT f1@(FuncT _ _) f2@(FuncT _ _)) = "(" ++ show f1 ++ ")" ++
-                                               " -> " ++ "(" ++ show f2 ++ ")"
-  show (FuncT f1@(FuncT _ _) t2) = "(" ++ show f1 ++ ")" ++ " -> " ++ show t2
-  show (FuncT t1 f2@(FuncT _ _)) = show t1 ++ " -> " ++ "(" ++ show f2 ++ ")"
-  show (FuncT t1 t2) = show t1 ++ " -> " ++ show t2
-  show (PairT t1 t2) = "<" ++ show t1 ++ ", " ++ show t2 ++ ">"
-  show (TupleT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ show <$> ts in "[" ++ tys ++ "]"
-  show (RecordT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ show <$> ts in "{" ++ tys ++ "}"
-  show (SumT left right) = "Sum " ++ show left ++ " " ++ show right
-  show v@(VariantT _) = showVariant v
-  -- TODO: Write a proper show instance for FixT
-  show (FixT var ty) = "Rec Type " ++ var ++ " = " ++ show ty
-  show (VarT i) = "VarT " ++ show i
-
-showVariant :: Type -> String
-showVariant (VariantT tys) = unwords . intersperse "|" $ f <$> tys
-  where
-    f :: (Varname, Type) -> String
-    f (var, UnitT) = var
-    f (var, ty) = var ++ " " ++ show ty
-{-
-instance Pretty Type where
-  pretty = viaShow
--}
+  deriving (Show, Data, Eq)
 
 -- TODO: Implement a Context for type aliases!
 -- https://gist.github.com/ssbothwell/3a263a13df31942c292585d608c3892b

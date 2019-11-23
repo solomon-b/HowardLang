@@ -7,6 +7,7 @@ import Test.Hspec
 -- import Hedgehog (check)
 
 import HowardLang.Parser
+import HowardLang.PrettyPrinter
 import HowardLang.Types
 import HowardLang.Typechecker
 import HowardLang.AscribeTree
@@ -223,9 +224,13 @@ parseTests =
   ] ++
   -- Recursive Functions
   [ ( [r|let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in isEven 4 |]
-      , (Let "isZero" (Abs "n" NatT (Case (Var 0) Tru "m" Fls)) (Let "pred" (Abs "n" NatT (Case (Var 0) Z "m" (Var 0))) (Let "isEven" (Fix (Abs "rec" (FuncT NatT BoolT) (Abs "n" NatT (If (App (Var 3) (Var 0)) Tru (If (App (Var 3) (App (Var 2) (Var 0))) Fls (App (Var 1) (App (Var 2) (App (Var 2) (Var 0))))))))) (App (Var 0) (S (S (S (S Z))))))))
+      , Let "isZero" (Abs "n" NatT (Case (Var 0) Tru "m" Fls)) (Let "pred" (Abs "n" NatT (Case (Var 0) Z "m" (Var 0))) (Let "isEven" (Fix (Abs "rec" (FuncT NatT BoolT) (Abs "n" NatT (If (App (Var 3) (Var 0)) Tru (If (App (Var 3) (App (Var 2) (Var 0))) Fls (App (Var 1) (App (Var 2) (App (Var 2) (Var 0))))))))) (App (Var 0) (S (S (S (S Z)))))))
       , Tru)
-      ] ++
+  , ( [r|(fix (\rec:Nat->Nat->Nat.\x:Nat.\y:Nat.case x of Z => y | (S z) => rec z (S y))) 2 2|]
+    , App (App (Fix (Abs "rec" (FuncT NatT (FuncT NatT NatT)) (Abs "x" NatT (Abs "y" NatT (Case (Var 1) (Var 0) "z" (App (App (Var 3) (Var 0)) (S (Var 1)))))))) (S (S Z))) (S (S Z))
+    , S (S (S (S Z)))
+    )
+  ] ++
   -- Recursive Types
   [ ([r|(tag Cons [3, tag Cons [2, tag Cons [1, tag Nil]]] as mu.NatList: Nil | Cons [Nat, NatList])|]
     , Roll (FixT "NatList" (VariantT [("Nil",UnitT),("Cons",TupleT [NatT,VarT 0])])) (Tag "Cons" (Tuple [("0",S (S (S Z))),("1",Tag "Cons" (Tuple [("0",S (S Z)),("1",Tag "Cons" (Tuple [("0",S Z),("1",Tag "Nil" Unit)]))]))]))

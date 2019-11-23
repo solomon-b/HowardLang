@@ -391,26 +391,6 @@ pTag = do
     enum :: Parser Term
     enum = Tag <$> constructor <*> pure Unit
 
-pTag' :: Parser Term
-pTag' = do
-  rword "tag"
-  tag <- constructor
-  isEnum <- optional $ lookAhead (rword "as")
-  case isEnum of
-    Just _ -> do
-      rword "as"
-      ty <- parensOpt parseType
-      case findRec ty of
-        Just fixT -> pure $ Roll fixT $ As (Tag tag Unit) ty
-        Nothing -> pure $ As (Tag tag Unit) ty
-    Nothing -> do
-      term <- pTerm
-      rword "as"
-      ty <- parensOpt parseType
-      case findRec ty of
-        Just fixT -> pure $ Roll fixT $ As (Tag tag term) ty
-        Nothing -> pure $ As (Tag tag term) ty
-
 findRec :: Type -> Maybe Type
 findRec (FuncT ty1 ty2) = findRec ty1 <|> findRec ty2
 findRec (PairT ty1 ty2) = findRec ty1 <|> findRec ty2
