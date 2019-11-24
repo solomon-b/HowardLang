@@ -20,9 +20,6 @@ ascribeRolls = f
     f (Tuple ts) = Tuple $ (fmap . fmap) f ts
     f (Get t1 v) = Get (f t1) v
     f (Record ts) = Record $ (fmap . fmap) f ts
-    f (InL t1 ty) = InL (f t1) ty
-    f (InR t1 ty) = InR (f t1) ty
-    f (SumCase t1 t2 bndr t3 bndr') = SumCase (f t1) (f t2) bndr (f t3) bndr'
     f (VariantCase t1 ts) = VariantCase (f t1) $ (fmap . fmap) f ts
     f (Fix t1) = Fix (f t1)
     f (Roll u@(FixT _ ty) t1) =
@@ -48,9 +45,6 @@ ascribeChildRolls fixT = f
     f (Tuple ts) = Tuple $ (fmap . fmap) f ts
     f (Get t1 v) = Get (f t1) v
     f (Record ts) = Record $ (fmap . fmap) f ts
-    f (InL t1 ty) = InL (f t1) ty
-    f (InR t1 ty) = InR (f t1) ty
-    f (SumCase t1 t2 bndr t3 bndr') = SumCase (f t1) (f t2) bndr (f t3) bndr'
     f (VariantCase t1 ts) = VariantCase (f t1) $ (fmap . fmap) f ts
     f (Fix t1) = Fix (f t1)
     f (Roll u@(FixT _ _) (Tag v t1)) = Roll u (Tag v (f t1))
@@ -76,9 +70,6 @@ ascribeTags as = f
     f (Tuple ts) = Tuple $ (fmap . fmap) f ts
     f (Get t1 v) = Get (f t1) v
     f (Record ts) = Record $ (fmap . fmap) f ts
-    f (InL t1 ty) = InL (f t1) ty
-    f (InR t1 ty) = InR (f t1) ty
-    f (SumCase t1 t2 bndr t3 bndr') = SumCase (f t1) (f t2) bndr (f t3) bndr'
     f (VariantCase t1 ts) = VariantCase (f t1) $ (fmap . fmap) f ts
     f (Fix t1) = Fix (f t1)
     f (Roll ty t1) = Roll ty (f t1)
@@ -107,9 +98,6 @@ stripAscriptions = f
       (Tuple ts)                  -> Tuple ((fmap . fmap) f ts)
       (Get t1 v)                  -> Get (f t1) v
       (Record ts)                 -> Record ((fmap . fmap) f ts)
-      (InL t1 ty)                 -> InL (f t1) ty
-      (InR t1 ty)                 -> InR (f t1) ty
-      (SumCase t1 t2 bnd t3 bnd2) -> SumCase (f t1) (f t2) bnd (f t3) bnd2
       (Tag tag t1)                -> Tag tag (f t1)
       (VariantCase t1 ts)         -> VariantCase (f t1) ((fmap . fmap) f ts)
       (Fix t1)                    -> Fix (f t1)

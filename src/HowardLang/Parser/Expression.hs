@@ -22,7 +22,7 @@ pValues :: Parser Term
 pValues = pTuple <|> pRecord <|> pPair <|> pUnit <|> pBool <|> pNat <|> pPeano <|> pVar
 
 pStmts :: Parser Term
-pStmts = pLetRec <|> pFix <|> pGet <|> pVariantCase <|> pTag <|> pSumCase <|> pInX <|> pCase <|> pAbs <|> pLet <|> pAs <|> pFst <|> pSnd
+pStmts = pLetRec <|> pFix <|> pGet <|> pVariantCase <|> pTag <|> pCase <|> pAbs <|> pLet <|> pAs <|> pFst <|> pSnd
 
 pTerm :: Parser Term
 pTerm = foldl1 App <$> (  pIf
@@ -66,12 +66,6 @@ pTupleT = parens $ do
   comma
   tys <- parseType `sepBy1` comma
   pure $ TupleT (ty:tys)
-
-pSumT :: Parser Type
-pSumT = do
-  rword "Sum"
-  t1 <- parseType
-  SumT t1 <$> parseType
 
 pVariantT :: Parser Type
 pVariantT = do
@@ -119,7 +113,7 @@ parseType = do
     ArrowTok t2 -> pure $ FuncT t1 t2
 
 start :: Parser Type
-start = pFixT <|> pUnitT <|> pNatT <|> pBoolT <|> pSumT <|> pVariantT <|> pTupleT <|> pRecordT <|> pVarT 
+start = pFixT <|> pUnitT <|> pNatT <|> pBoolT <|> pVariantT <|> pTupleT <|> pRecordT <|> pVarT
 
 end :: Parser (Tok Type)
 end = arrowEnd <|> pairEnd <|> pure Epsilon
@@ -258,26 +252,6 @@ pFst = rword "fst" *> (Fst <$> pTerm)
 pSnd :: Parser Term
 pSnd = rword "snd" *> (Snd <$> pTerm)
 
-pInX :: Parser Term
-pInX = p InL "inl" <|> p InR "inr"
-  where
-    p :: (Term -> Type -> Term) -> Varname -> Parser Term
-    p trm lbl = rword lbl *> (trm <$> pTerm <* colon <*> parseType)
-
-pSumCase :: Parser Term
-pSumCase = do
-  rword "sumCase"
-  t1 <- pTerm
-  rword "of"
-  vL <- parensOpt $ rword "inl" *> identifier
-  phatArrow
-  tL <- bindLocalVar vL pTerm
-  pipe
-  vR <- parensOpt $ rword "inr" *> identifier
-  phatArrow
-  tR <- bindLocalVar vR pTerm
-  pure $ SumCase t1 tL vL tR vR
-
 -- TODO: Rewrite Case parser to work with both sums and nats
 pCase :: Parser Term
 pCase = do
@@ -318,7 +292,6 @@ findRec (FuncT ty1 ty2) = findRec ty1 <|> findRec ty2
 findRec (PairT ty1 ty2) = findRec ty1 <|> findRec ty2
 findRec (TupleT tys) = foldr (<|>) Nothing (fmap findRec tys)
 findRec (RecordT tys) = foldr (<|>) Nothing  $ fmap (findRec . snd) tys
-findRec (SumT ty1 ty2) = findRec ty1 <|> findRec ty2
 findRec (VariantT tys) = foldr (<|>) Nothing  $ fmap (findRec . snd) tys
 findRec ty@(FixT _ _) = Just ty
 findRec _ = Nothing

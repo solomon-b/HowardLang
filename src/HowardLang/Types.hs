@@ -1,3 +1,4 @@
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 module HowardLang.Types where
 
@@ -34,9 +35,6 @@ data Term
   | Tuple [(Varname, Term)]
   | Get Term Varname -- Get Tuple Nat
   | Record [(Varname, Term)]
-  | InL Term Type
-  | InR Term Type
-  | SumCase Term Term Binder Term Binder
   | Tag String Term
   | VariantCase Term [(Tag, Maybe Binder, Term)] -- [(binder, tag)]
   | Fix Term
@@ -52,7 +50,6 @@ data Type
   | PairT Type Type
   | TupleT [Type]
   | RecordT [(Tag, Type)]
-  | SumT Type Type
   | VariantT [(Tag, Type)]
   | FixT Varname Type
   | VarT DeBruijn
@@ -102,8 +99,6 @@ isVal c (As t1 _)   = isVal c t1
 isVal c (Pair t1 t2) = isVal c t1 && isVal c t2
 isVal c (Tuple ts)  = all (isVal c . snd) ts
 isVal c (Record ts)  = all (isVal c . snd) ts
-isVal c (InL t _)   = isVal c t
-isVal c (InR t _)   = isVal c t
 isVal c (Tag _ t) = isVal c t
 isVal c (Roll _ t)  = isVal c t
 isVal _ (Unroll _ (Roll _ _))  = False

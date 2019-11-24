@@ -7,7 +7,6 @@ import Test.Hspec
 -- import Hedgehog (check)
 
 import HowardLang.Parser
-import HowardLang.PrettyPrinter
 import HowardLang.Types
 import HowardLang.Typechecker
 import HowardLang.AscribeTree
@@ -112,8 +111,6 @@ parseTests =
   , ( "snd <0, <0, True>>", Snd (Pair Z (Pair Z Tru)), Pair Z Tru)
   , ( "(1, True, Unit)", Tuple [("0", S Z),("1", Tru),("2", Unit)], Tuple [("0", S Z),("1", Tru),("2", Unit)])
   , ( "{foo=1, bar=True}", Record [("foo", S Z),("bar", Tru)], Record [("foo", S Z),("bar", Tru)])
-  , ( "inl Unit : Sum Unit Bool", InL Unit (SumT UnitT BoolT), InL Unit (SumT UnitT BoolT))
-  , ( "inr True : Sum Unit Bool", InR Tru (SumT UnitT BoolT), InR Tru (SumT UnitT BoolT))
   , ( "tag Just 1 as Nothing | Just Nat"
     , As (Tag "Just" (S Z)) (VariantT [("Nothing", UnitT), ("Just", NatT)])
     , Tag "Just" (S Z)
@@ -199,14 +196,6 @@ parseTests =
   [ ( "case Z of Z => True | (S m) => False", Case Z Tru "m" Fls, Tru)
   , ( "case 1 of Z => True | (S m) => False", Case (S Z) Tru "m" Fls, Fls)
   , ( "case 2 of Z => Z | (S m) => m", Case (S $ S Z) Z "m" (Var 0), S Z)
-  ] ++
-  -- Sum Case
-  [ ( "sumCase (inr True : Sum Unit Bool) of inl l => False | inr r => True"
-    , SumCase (InR Tru (SumT UnitT BoolT)) Fls "l" Tru "r"
-    , Tru)
-  , ( "sumCase (inl Unit : Sum Unit Bool) of inl l => False | inr r => True"
-    , SumCase (InL Unit (SumT UnitT BoolT)) Fls "l" Tru "r"
-    , Fls)
   ] ++
   -- Variant Case
   [ ( "variantCase (tag Nothing as Nothing | Just Nat) of Nothing => False | Just=x => True"

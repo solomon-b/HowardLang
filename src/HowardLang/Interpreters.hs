@@ -68,9 +68,6 @@ shift target t = f 0 t
     f i (Tuple ts) = Tuple $ (fmap . fmap) (f i) ts
     f i (Record ts) = Record $ (fmap . fmap) (f i) ts
     f i (Get t1 v) = Get (f i t1) v
-    f i (InL t1 ty) = InL (f i t1) ty
-    f i (InR t1 ty) = InR (f i t1) ty
-    f i (SumCase t1 tL vL tR vR) = SumCase (f i t1) (f (i + 1) tL) vL (f (i + 1) tR) vR
     f i (Tag tag t1) = Tag tag (f i t1)
     f i (VariantCase t1 cases) = VariantCase (f i t1) $ cases >>= \(tag, bnd, trm) -> pure (tag, bnd, f (i + 1) trm)
     f i (Fix t1) = Fix (f i t1)
@@ -116,14 +113,6 @@ subst j s t = f 0 s t
         f c s' (Tuple ts) = Tuple $ (fmap . fmap) (f c s' ) ts
         f c s' (Record ts) = Record $ (fmap . fmap) (f c s' ) ts
         f c s' (Get t1 v) = Get (f c s' t1) v
-        f c s' (InL t1 ty) = InL (f c s' t1) ty
-        f c s' (InR t1 ty) = InR (f c s' t1) ty
-        f c s' (SumCase t1 tL vL tR vR) =
-          SumCase (f c s' t1)
-                  (f (c + 1) (shift c s') tL)
-                  vL
-                  (f (c + 1) (shift c s') tR)
-                  vR
         f c s' (Tag tag t1) = Tag tag (f c s' t1)
         f c s' (VariantCase t1 cases) = let cases' = ((fmap . fmap) (f (c + 1) (shift c s')) cases)
                                         in VariantCase (f c s' t1) cases'
@@ -172,12 +161,6 @@ singleEval ctx t =
     (Get (Tuple ts) var) -> lookup var ts
     (Get (Record ts) var) -> lookup var ts
     (Get t1 var) | not $ isVal ctx t1 -> singleEval ctx t1 >>= \t1' -> pure (Get t1' var)
-    (SumCase t1 tL vL tR vR) | not $ isVal ctx t1 ->
-      singleEval ctx t1 >>= \t1' -> pure (SumCase t1' tL vL tR vR)
-    (SumCase (InL t1 _) tL _ _ _) -> pure $ substTop t1 tL
-    (SumCase (InR t1 _) _ _ tR _) -> pure $ substTop t1 tR
-    (InL t1 ty) -> flip InR ty <$> singleEval ctx t1
-    (InR t1 ty) -> flip InR ty <$> singleEval ctx t1
     (Tag tag t1) -> singleEval ctx t1 >>= \t1' -> pure $ Tag tag t1'
     (VariantCase t1 cases) | not $ isVal ctx t1 -> singleEval ctx t1 >>= \t1' -> pure (VariantCase t1' cases)
     (VariantCase t1 cases) ->
@@ -225,17 +208,9 @@ bigStepEval ctx (Snd t1) = bigStepEval ctx t1
 bigStepEval ctx (Pair t1 t2) = Pair (bigStepEval ctx t1) (bigStepEval ctx t2)
 bigStepEval ctx (Tuple ts) = Tuple $ ts >>= \(v,t) -> pure (v, bigStepEval ctx t)
 bigStepEval ctx (Record ts) = Record $ ts >>= \(v,t) -> pure (v, bigStepEval ctx t)
-bigStepEval ctx (SumCase t1 tL _ tR _) =
-   let t1' = bigStepEval ctx t1
-   in case t1' of
-     (InL t1'' _) -> bigStepEval ctx $ substTop t1'' tL
-     (InR t1'' _) -> bigStepEval ctx $ substTop t1'' tR
-     x -> error $ show x -- NOTE: Typechecker should make this state impossible
 bigStepEval ctx (VariantCase t1 cases) =
   let t1' = bigStepEval ctx t1
   in undefined -- TODO: Implement bigstep variantcase eval
-bigStepEval _ t@(InL _ _) = t
-bigStepEval _ t@(InR _ _) = t
 bigStepEval _ t@(Tag _ _) = t
 bigStepEval ctx t@(Fix t1) = bigStepEval ctx $ substTop t t1
 bigStepEval ctx (Roll ty t1) = Roll ty $ bigStepEval ctx t1

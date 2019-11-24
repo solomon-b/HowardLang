@@ -79,10 +79,6 @@ instance Pretty Type where
       f (RecordT ts) = do
         ts' <- traverse (f . snd) ts
         pure $ "{" ++ commas ts' ++ "}"
-      f (SumT left right) = do
-        left' <- f left
-        right' <- f right
-        pure $ "Sum " ++ left' ++ " " ++ right'
       f (VariantT tys) = do
         tys' <- (traverse . traverse) f tys
         pure . unwords . intersperse "|" $ snd <$> tys'
@@ -157,16 +153,6 @@ instance Pretty Term where
       f (Record ts) = do
         ts' <- traverse (\(v1,t1) -> (++) (v1 ++ "=") <$> f t1) ts
         pure $ "{" ++ commas ts' ++ "}"
-      f (InR t1 _) = pure $ "inr " ++ pretty t1
-      f (InL t1 _) = pure $ "inl " ++ pretty t1
-      f (SumCase t1 tL vL tR vR) = do
-        ctx <- ask
-        t1' <- f t1
-        tL' <- local (const (vL:ctx)) (f tL)
-        tR' <- local (const (vR:ctx)) (f tR)
-        pure $ "sumCase " ++ t1' ++ " of " ++
-               "inl " ++ vL ++ " => " ++ tL' ++ " | "  ++
-               "inr " ++ vR ++ " => " ++ tR'
       f (Tag tag Unit) = pure tag
       f (Tag tag t1) = pure $ tag ++ " " ++ pretty t1
       f (VariantCase t1 cases) = do

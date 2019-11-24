@@ -68,7 +68,6 @@ findRec (FuncT ty1 ty2) = findRec ty1 <|> findRec ty2
 findRec (PairT ty1 ty2) = findRec ty1 <|> findRec ty2
 findRec (TupleT tys) = foldr (<|>) Nothing (fmap findRec tys)
 findRec (RecordT tys) = foldr (<|>) Nothing  $ fmap (findRec . snd) tys
-findRec (SumT ty1 ty2) = findRec ty1 <|> findRec ty2
 findRec (VariantT tys) = foldr (<|>) Nothing  $ fmap (findRec . snd) tys
 findRec ty@(FixT _ _) = Just ty
 findRec _ = Nothing
@@ -149,24 +148,6 @@ typecheck (Get (Record ts) v) =
 typecheck (Get t1 _) = throwTypeError' $ "Type Error: " ++ pretty t1 ++ " is not a Tuple or Record."
 -- TODO: Typechecker is passing `{foo=1, foo=True}`
 typecheck (Record ts) = (traverse . traverse) typecheck ts >>= pure . RecordT
-typecheck (InL t1 ty@(SumT tyL _)) = typecheck t1 >>= \ty1 ->
-  if ty1 == tyL
-  then pure ty
-  else throwTypeError t1 ty1 tyL -- TODO: Improve this error, it does not reference the sum type.
-typecheck (InL _ ty) = throwTypeError' $ "Type Error: " ++ show ty ++ " is not a Sum type."
-typecheck (InR t1 ty@(SumT _ tyR)) = typecheck t1 >>= \ty1 ->
-  if ty1 == tyR
-  then pure ty
-  else throwTypeError t1 ty1 tyR -- TODO: Improve this error, it does not reference the sum type.
-typecheck (InR _ ty) = throwTypeError' $ "Type Error: " ++ show ty ++ " is not a Sum type."
-typecheck (SumCase t tL vL tR vR) = typecheck t >>= \case
-  (SumT l r) -> do
-    tyL <- bindLocalVar vL l tL
-    tyR <- bindLocalVar vR r tR
-    if tyL == tyR
-    then pure tyR
-    else throwTypeError tL tyR tyL
-  ty -> throwTypeError' $ "Expected a Sum Type but got: " ++ show ty
 typecheck (Fix t) = typecheck t >>= \case
   (FuncT ty1 ty2) -> if ty1 == ty2 then pure ty2 else throwTypeError t ty2 ty1
   ty  -> throwTypeError' $ "Type Error: " ++ show ty ++ " is not a function type"
@@ -211,7 +192,6 @@ typeShift target t = f 0 t
   where
     f :: DeBruijn -> Type -> Type
     f i (PairT ty1 ty2) = PairT    (f i ty1) (f i ty2)
-    f i (SumT ty1 ty2)  = SumT     (f i ty1) (f i ty2)
     f i (FuncT ty1 ty2) = FuncT    (f i ty1) (f i ty2)
     f i (TupleT tys)    = TupleT   (f i <$> tys)
     f i (RecordT tys)   = RecordT  ((fmap . fmap) (f i) tys)
@@ -222,7 +202,6 @@ typeShift target t = f 0 t
 
 typeSubst :: DeBruijn -> Type -> Type -> Type
 typeSubst a ty (PairT ty1 ty2) = PairT (typeSubst a ty ty1) (typeSubst a ty ty2)
-typeSubst a ty (SumT ty1 ty2)  = SumT (typeSubst a ty ty1) (typeSubst a ty ty2)
 typeSubst a ty (FuncT ty1 ty2) = FuncT (typeSubst a ty ty1) (typeSubst a ty ty2) -- NOTE: Suspect?
 typeSubst a ty (TupleT tys)    = TupleT $ (typeSubst a ty) <$> tys
 typeSubst a ty (RecordT tys)   = RecordT $ (fmap . fmap) (typeSubst a ty) tys
