@@ -4,7 +4,6 @@ module HowardLang.Repl where
 
 import Control.Monad.Except
 import Data.List
-import Data.Function
 import Text.Megaparsec.Error
 
 import System.Console.Repline

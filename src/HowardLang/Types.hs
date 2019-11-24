@@ -3,14 +3,12 @@ module HowardLang.Types where
 
 import Control.Exception (Exception)
 
-import Data.List (intersperse)
 import Data.Data
 import Data.Function
---import qualified Data.Text as T
---import Data.Text.Prettyprint.Doc
 
 import Text.Megaparsec
 
+type Name = String
 type Tag = String
 type Binder = String
 type Varname = String

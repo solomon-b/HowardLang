@@ -34,14 +34,24 @@ showNat nat = show $ f nat
     f (S n) = 1 + f n
     f _ = error "Ooops, typechecker failed to identify an ill typed Nat"
 
-class Pretty a where
+commas :: [String] -> String
+commas = foldl1 (\a b -> a ++ ", " ++ b)
+
+prettyVariant :: [(Tag, Type)] -> String
+prettyVariant tys = unwords . intersperse "|" $ f <$> tys
+  where
+    f :: (Varname, Type) -> String
+    f (var, UnitT) = var
+    f (var, ty) = var ++ " " ++ pretty ty
+
+class Show a => Pretty a where
   pretty :: a -> String
+  pretty = show
 
 instance Pretty Int where
-  pretty = show
 
-instance Pretty Tag where
-  pretty = show
+instance Pretty String where
+  pretty = id
 
 instance Pretty Type where
   pretty BoolT = "Bool"
@@ -53,22 +63,13 @@ instance Pretty Type where
   pretty (FuncT t1 f2@(FuncT _ _)) = pretty t1 ++ " -> " ++ "(" ++ pretty f2 ++ ")"
   pretty (FuncT t1 t2) = pretty t1 ++ " -> " ++ pretty t2
   pretty (PairT t1 t2) = "<" ++ pretty t1 ++ ", " ++ pretty t2 ++ ">"
-  pretty (TupleT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ pretty <$> ts in "[" ++ tys ++ "]"
-  pretty (RecordT ts) = foldr (\a b -> pretty (snd a) ++ " -> " ++ b) "Record" ts
-  --pretty (RecordT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ pretty <$> ts in "{" ++ tys ++ "}"
-
+  pretty (TupleT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ pretty <$> ts in "(" ++ tys ++ ")"
+  pretty (RecordT ts) = "{" ++ commas (fmap (pretty . snd) ts) ++ "}"
   pretty (SumT left right) = "Sum " ++ pretty left ++ " " ++ pretty right
-  pretty v@(VariantT _) = prettyVariant v
+  pretty (VariantT tys) = prettyVariant tys
   -- TODO: Write a proper pretty instance for FixT
   pretty (FixT var ty) = "Rec Type " ++ var ++ " = " ++ pretty ty
   pretty (VarT i) = "VarT " ++ pretty i
-
-prettyVariant :: Type -> String
-prettyVariant (VariantT tys) = unwords . intersperse "|" $ f <$> tys
-  where
-    f :: (Varname, Type) -> String
-    f (var, UnitT) = var
-    f (var, ty) = var ++ " " ++ show ty
 
 -- TODO: Replace this with a more robust pretty printer
 instance Pretty Term where
@@ -120,13 +121,13 @@ instance Pretty Term where
       f (Snd t1) = (++ "snd ") <$> f t1
       f (Tuple ts) = do
         ts' <- traverse (f . snd) ts
-        pure $ "(" ++ unwords (intersperse "," ts') ++ ")"
+        pure $ "(" ++ commas ts' ++ ")"
       f (Get t1 v) = do
         t1' <- f t1
         pure $ "Get " ++ v ++ " from " ++ pretty t1'
       f (Record ts) = do
-        ts' <- traverse (\(v1,t1) -> ((++) (v1 ++ "=")) <$> f t1) ts
-        pure $ "{" ++ unwords (intersperse "," ts') ++ "}"
+        ts' <- traverse (\(v1,t1) -> (++) (v1 ++ "=") <$> f t1) ts
+        pure $ "{" ++ commas ts' ++ "}"
       f (InR t1 _) = pure $ "inr " ++ pretty t1
       f (InL t1 _) = pure $ "inl " ++ pretty t1
       f (SumCase t1 tL vL tR vR) = do
@@ -142,7 +143,7 @@ instance Pretty Term where
       f (VariantCase t1 cases) = do
         ctx <- ask
         t1' <- f t1
-        let cases' = filter (\(tag,_, _) -> not $ elem tag ctx) cases
+        let cases' = filter (\(tag,_, _) -> tag `notElem` ctx) cases
         patterns <- traverse (\(tag, bndr, t') -> do
           tC <- local (const (tag:ctx)) (f t')
           let bndr' = maybe mempty ( (:) ' ' . pretty) bndr

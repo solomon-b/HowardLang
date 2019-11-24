@@ -26,7 +26,7 @@ True
 Bool
 
 λ> 1
-S Z
+1
 
 λ> :t 1
 Nat
@@ -43,7 +43,13 @@ Unit
 (S Z , True , Unit)
 
 λ> :t (1, True, Unit)
-[Nat, Bool, Unit]
+(Nat, Bool, Unit)
+
+λ> {foo=True, bar= 7}
+{foo=True, bar=7}
+
+λ> :t {foo=True, bar= 7}
+{Bool, Nat}
 
 λ> tag Left True as (Left Bool | Right Nat)
 Left True
@@ -61,17 +67,17 @@ Nothing | Just Nat
 #### Recursive Types:
 The syntax and pretty printing is especially awful for these right now:
 ```ml
-λ> (tag Cons [3, tag Cons [2, tag Cons [1, tag Nil]]] as mu.NatList: Nil | Cons [Nat, NatList])
-Cons (S (S (S Z)) , Cons (S (S Z) , Cons (S Z , Nil)))
+λ> (tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
+Cons (1, Cons (2, Cons (3, Nil)))
 
-λ> :t (tag Cons [3, tag Cons [2, tag Cons [1, tag Nil]]] as mu.NatList: Nil | Cons [Nat, NatList])
-Rec Type NatList = Nil | Cons [Nat, VarT 0]
+λ> :t (tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
+Rec Type NatList = Nil | Cons (Nat, VarT 0)
 
-λ> tag Branch [tag Leaf, 0, tag Branch [tag Leaf, 1, tag Leaf]] as mu.NatTree: Leaf | Branch [NatTree, Nat, NatTree]
-Branch (Leaf , 0 , Branch (Leaf , S Z , Leaf))
+λ> tag Branch (tag Leaf, 0, tag Branch (tag Leaf, 1, tag Leaf)) as mu.NatTree: Leaf | Branch (NatTree, Nat, NatTree)
+Branch (Leaf, 0, Branch (Leaf, 1, Leaf))
 
-λ> :t tag Branch [tag Leaf, 0, tag Branch [tag Leaf, 1, tag Leaf]] as mu.NatTree: Leaf | Branch [NatTree, Nat, NatTree]
-Rec Type NatTree = Leaf | Branch [VarT 0, Nat, VarT 0]
+λ> :t tag Branch (tag Leaf, 0, tag Branch (tag Leaf, 1, tag Leaf)) as mu.NatTree: Leaf | Branch (NatTree, Nat, NatTree)
+Rec Type NatTree = Leaf | Branch (VarT 0, Nat, VarT 0)
 ```
 
 #### Functions:
@@ -124,5 +130,5 @@ Nothing | Just Nat -> Nat
 0
 
 λ> (\x:(Nothing | Just Nat).variantCase x of Nothing => 0 | Just=y => y) (tag Just 2 as (Nothing | Just Nat))
-S (S Z)
+2
 ```

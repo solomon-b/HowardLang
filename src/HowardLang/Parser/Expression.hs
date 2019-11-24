@@ -6,8 +6,6 @@ import Control.Monad.Reader
 import Data.Functor
 import Data.List
 
-import Lens.Micro
-
 import Text.Megaparsec
 import Text.Megaparsec.Char
 
@@ -16,85 +14,9 @@ import HowardLang.Parser.Combinators
 import HowardLang.Parser.Token
 import HowardLang.Typechecker (typeSubstTop)
 
------------------------
------ BNF Grammer -----
------------------------
-
-{-
-SHINY NEW TYPE PARSER
-
-TYPE = "(" TYPE ")" | START END
-START = UNIT | NAT | BOOL | SUM
-END = "X" TYPE | "->" TYPE | EPSILON
-
-FIXT = "mu." VAR TYPE
-RECORD = "{" TYPE { , TYPE } "}"
-TUPLE = "( TYPE { , TYPE } ")"
-VARIANT = VAR [TYPE] { | VAR [TYPE] }
-SUM = "SUM" TYPE TYPE
-UNIT = "Unit" | "()"
-NAT = "Nat"
-BOOL = "Bool"
--}
-
-{-
-CURRENT TERM PARSER PLUS OLD TYPE PARSER -- TODO: UPDATE THIS
-
-ALPHA = "A".."Z" | "a".."z";
-DIGIT = "0".."9";
-INTEGER = DIGIT {DIGIT};
-
-VAR = ALPHA {ALPHA | INTEGER};
-BOOL = "True" | "False";
-S = "S" TERM;
-Z = "Z" | "0";
-APP = TERM TERM;
-ABS = ("\\" | "λ") VAR ":" TYPE "." TERM;
-CASE = "case" TERM "of" "Z" "=>" TERM "|" "(S" VAR ")" "=>" TERM;
-IF = "if:" TERM "then:" TERM "else:" TERM;
-PAIR = "<" TERM "," TERM ">";
-FST = "fst" TERM;
-SND = "snd" TERM;
-TUPLE = "(" TERM { "," TERM } ")";
-PROJ = "get" TERM "[" VAR "]";
-RECORD = "{" VAR "=" TERM { "," VAR "=" TERM } "}";
-GROUP = "(" TERM ")";
-INR = "inr" TERM TYPE;
-INL = "inl" TERM TYPE;
-SUMCASE = "sumCase" TERM "of" "(" "inl" VAR ")" "=>" TERM "|" "(" "inr" VAR ")" "=>" TERM;
-TAG = "tag" VAR TERM "as" TYPE;
-VARIANTCASE = "variantCase" TERM "of" VAR VAR "=>" TERM { "|" VAR VAR "=>" TERM };
-FIX = fix TERM
-LET = "let" VAR {"(" VAR ":" "TYPE" ")"} "=" TERM "in" TERM
-LETREC = "letrec" VAR "=" TERM "in" TERM
-
-TYPE = "Unit" | "Bool" | "Nat" | TYPE "->" "TYPE" | TYPE "x" TYPE | "(" TYPE { "," TYPE } ")" | "{" TYPE { "," TYPE } "}" | Sum Type Type;
-TERM = GROUP | VAR | S | Z | BOOL | APP | ABS | CASE | IF | PAIR | FST | SND | TUPLE | PROJ | RECORD | INR | INL | SUMCASE | FIX | LET | LETREC;
-
-
-Example Expressions:
-
-(\x:Nat.x) === Abs "x" NatT (Var 0)
-
-Example Type Signatures:
-Product Type:
-(Nat, Bool) === (NatT, BoolT)
-
-Variant Type:
-(Left Bool | Right Nat) === VarantT [("Left", BoolT), ("Right, NatT")]
-
-Enumerated Type:
-(Nothing | Just Nat) === VariantT [("Nothing", UnitT), ("Just", NatT)]
-(Red | Blue | Green) === VariantT [("Red", UnitT), ("Blue", UnitT), ("Green", UnitT)]
-
-Recursive Type:
-mu. List: (Nil | Cons a List a)
-
--}
 
 -- | Composed Parser
 
--- TODO: Recurses infinitely: `(tag Right (1, True) as (Left Unit | Right (Nat, Bool)))`
 -- TODO: Parser blows up with out of scope Vars
 pValues :: Parser Term
 pValues = pTuple <|> pRecord <|> pPair <|> pUnit <|> pBool <|> pNat <|> pPeano <|> pVar
@@ -139,7 +61,7 @@ pRecordT = bracket $ do
 
 -- TODO: Figure out how to allow for tuples to use parens
 pTupleT :: Parser Type
-pTupleT = squareBracket $ do
+pTupleT = parens $ do
   ty <- parseType
   comma
   tys <- parseType `sepBy1` comma
@@ -189,7 +111,7 @@ pVarT = do
 
 parseType :: Parser Type
 parseType = do
-  t1 <- parens parseType <|> start
+  t1 <- try (parens parseType) <|> start
   mT2 <- end
   case mT2 of
     Epsilon -> pure t1
@@ -245,7 +167,7 @@ pVar = do
     searchContext ctx val = find (== val) ctx >>= flip elemIndex ctx
 
 pTuple :: Parser Term
-pTuple = squareBracket $ do
+pTuple = parens $ do
   ts <- zip nats <$> pTerm `sepBy1` symbol ","
   if length ts == 1
   then pure $ snd $ head ts

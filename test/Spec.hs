@@ -110,7 +110,7 @@ parseTests =
   , ( "<0, <0, True>>", Pair Z (Pair Z Tru), Pair Z (Pair Z Tru))
   , ( "fst <0, <0, True>>", Fst (Pair Z (Pair Z Tru)), Z)
   , ( "snd <0, <0, True>>", Snd (Pair Z (Pair Z Tru)), Pair Z Tru)
-  , ( "[1, True, Unit]", Tuple [("0", S Z),("1", Tru),("2", Unit)], Tuple [("0", S Z),("1", Tru),("2", Unit)])
+  , ( "(1, True, Unit)", Tuple [("0", S Z),("1", Tru),("2", Unit)], Tuple [("0", S Z),("1", Tru),("2", Unit)])
   , ( "{foo=1, bar=True}", Record [("foo", S Z),("bar", Tru)], Record [("foo", S Z),("bar", Tru)])
   , ( "inl Unit : Sum Unit Bool", InL Unit (SumT UnitT BoolT), InL Unit (SumT UnitT BoolT))
   , ( "inr True : Sum Unit Bool", InR Tru (SumT UnitT BoolT), InR Tru (SumT UnitT BoolT))
@@ -125,8 +125,8 @@ parseTests =
   -- Accesors
   [ ( "fst <0, <0, True>>", Fst (Pair Z (Pair Z Tru)), Z)
   , ( "snd <0, <0, True>>", Snd (Pair Z (Pair Z Tru)), Pair Z Tru)
-  , ( "get [1, True, Unit].0", Get (Tuple [("0", S Z),("1", Tru),("2", Unit)]) "0", S Z)
-  , ( "get [1, True, Unit].2", Get (Tuple [("0", S Z),("1", Tru),("2", Unit)]) "2", Unit)
+  , ( "get (1, True, Unit).0", Get (Tuple [("0", S Z),("1", Tru),("2", Unit)]) "0", S Z)
+  , ( "get (1, True, Unit).2", Get (Tuple [("0", S Z),("1", Tru),("2", Unit)]) "2", Unit)
   , ( "get {foo=Unit, bar=True}.foo", Get (Record [("foo", Unit), ("bar", Tru)]) "foo", Unit)
   , ( "get {foo=Unit, bar=True}.bar", Get (Record [("foo", Unit), ("bar", Tru)]) "bar", Tru)
   ] ++
@@ -232,7 +232,7 @@ parseTests =
     )
   ] ++
   -- Recursive Types
-  [ ([r|(tag Cons [3, tag Cons [2, tag Cons [1, tag Nil]]] as mu.NatList: Nil | Cons [Nat, NatList])|]
+  [ ([r|(tag Cons (3, tag Cons (2, tag Cons (1, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))|]
     , Roll (FixT "NatList" (VariantT [("Nil",UnitT),("Cons",TupleT [NatT,VarT 0])])) (Tag "Cons" (Tuple [("0",S (S (S Z))),("1",Tag "Cons" (Tuple [("0",S (S Z)),("1",Tag "Cons" (Tuple [("0",S Z),("1",Tag "Nil" Unit)]))]))]))
     , Roll (FixT "NatList" (VariantT [("Nil",UnitT),("Cons",TupleT [NatT,VarT 0])])) (Tag "Cons" (Tuple [("0",S (S (S Z))),("1",Tag "Cons" (Tuple [("0",S (S Z)),("1",Tag "Cons" (Tuple [("0",S Z),("1",Tag "Nil" Unit)]))]))])))
   ] ++

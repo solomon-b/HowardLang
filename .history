@@ -1,3 +1,40 @@
+:t (tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
+:t (tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
+:t (tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
+(tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
+(tag Cons (3, tag Cons (2, tag Cons (1, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
+tag Branch (tag Leaf, 0, tag Branch (tag Leaf, 1, tag Leaf)) as mu.NatTree: Leaf | Branch (NatTree, Nat, NatTree)
+{foo=True, bar= 7}
+(1, 2)
+(1, 2)
+{foo=True, bar= 7}
+{foo=True, bar= 7}
+(1, 2)
+tag Branch (tag Leaf, 0, tag Branch (tag Leaf, 1, tag Leaf)) as mu.NatTree: Leaf | Branch (NatTree, Nat, NatTree)
+(tag Cons (3, tag Cons (2, tag Cons (1, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
+:t {foo=True, bar= 7}
+{foo=True, bar= 7}
+:t let x = {foo=inr True : Sum Nat Bool, bar=4} in x
+let x = {foo=inr True : Sum Nat Bool, bar=4} in x
+let x = {foo=inr True : Sum Nat Bool, bar=4} in x
+:t let x = {foo=inr True : Sum Nat Bool, bar=4} in x
+:r
+:t let x = {foo=inr True : Sum Nat Bool, bar=4} in x
+let x = {foo=inr True : Sum Nat Bool, bar=4} in x
+let x = {foo=inr True : Sum Nat Bool} in x
+:t let x = {foo=inr True : Sum Nat Bool} in x
+:t [True, 1]
+:t True
+:t let x = {foo=inr True : Sum Nat Bool} in x
+:t let x = {foo=inr True : Sum Nat Bool} in x
+:t let x = {foo=inr True : Sum Nat Bool} in x
+:t let x = {foo=inr True : Sum Nat Bool} in x
+let x = {foo=inr True : Sum Nat Bool} in x
+let x = {foo=inr True : Sum Nat Bool} in (get x.foo)
+:t (tag Right [1, True] as (Left Unit | Right [Nat, Bool]))
+(tag Right [1, True] as (Left Unit | Right [Nat, Bool]))
+(tag Right [1, True] as (Left Unit | Right (Nat, Bool)))
+(tag Right (1, True) as (Left Unit | Right (Nat, Bool)))
 S True
 S S 8
 8
@@ -61,40 +98,3 @@ letrec
 (\v:(Nothing | Just Nat).variantCase v of Nothing => False | Just=x => True) (tag Nothing as (Nothing | Just Nat))
 :t (\v:(Nothing | Just Nat).variantCase v of Nothing => False | Just=x => True)
 (\v:(Nothing | Just Nat).variantCase v of Nothing => False | Just=x => True)
-(v:(Nothing | Just Nat).variantCase v of Nothing => False | Just=x => True)
-(v:(Nothing | Just Nat).variantCase v of Nothing => False | Just=x => True)
-tag Nothing as (Nothing | Just Nat)
-(\m:Nat.S m) 1
-(\m:Nat.S m) `
-(\m:Nat.S m) 0
-:t (\m:Nat.S m)
-(\m:Nat.S m)
-:t tag Just True as (Nothing | Just Nat)
-:t tag Just 3 as (Nothing | Just Nat)
-:t tag Nothing as (Nothing | Just Nat)
-tag Nothing as (Nothing | Just Nat)
-:t (1, True, True)
-:t (1, True)
-(1, True)
-:t Unit
-Unit
-:t False
-:t False
-False
-True
-:t 5
-5
-4
-3
-2
-1
-(\x:Nat.S x) 2
-(\x:Nat.S x) 1
-(\x:Nat.S x) 0
-:t 54
-5
-4
-3
-2
-1
-:t True
