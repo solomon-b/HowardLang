@@ -1,6 +1,19 @@
 :t (tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
 :t (tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
 :t (tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
+:t {foo=True, bar= 7}
+:t (\x:(Nothing | Just Nat).variantCase x of Nothing => 0 | Just=y => y) (tag Just 2 as (Nothing | Just Nat))
+(\x:(Nothing | Just Nat).variantCase x of Nothing => 0 | Just=y => y) (tag Just 2 as (Nothing | Just Nat))
+(\x:(Nothing | Just Nat).variantCase x of Nothing => 0 | Just=y => y) (tag Just 2 as (Nothing | Just Nat))
+:t {foo=True, bar= 7}
+:t{foo=True, bar= 7}
+{foo=True, bar= 7}
+:t tag Branch (tag Leaf, 0, tag Branch (tag Leaf, 1, tag Leaf)) as mu.NatTree: Leaf | Branch (NatTree, Nat, NatTree)
+tag Branch (tag Leaf, 0, tag Branch (tag Leaf, 1, tag Leaf)) as mu.NatTree: Leaf | Branch (NatTree, Nat, NatTree)
+:t (tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
+:t (tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
+:t (tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
+:t (tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
 (tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
 (tag Cons (3, tag Cons (2, tag Cons (1, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
 tag Branch (tag Leaf, 0, tag Branch (tag Leaf, 1, tag Leaf)) as mu.NatTree: Leaf | Branch (NatTree, Nat, NatTree)
@@ -85,16 +98,3 @@ let isZero (n : Nat) = case n of Z => True | (S m) => False in letrec isEven (re
 let isZero (n : Nat) = case n of Z => True | (S m) => False in isZero 3
 let isZero (n : Nat) = case n of Z => True | (S m) => False in isZero 1
 let isZero (n : Nat) = case n of Z => True | (S m) => False in isZero 0
-let isZero (n : Nat) = case n of Z => True | (S m) => False in isZero 0
-letrec isZero (n : Nat) = case n of Z => True | (S m) => False in isZero 0
-letrec isZero (rec : Nat -> Nat) (n : Nat) = case n of Z => True | (S m) => rec m in isZero 0
-letrec isZero (rec : Nat -> Nat) (a : Nat) = a in isZero 0
-letrec isZero (rec : Nat -> Nat) (a : Nat) = a in isZero
-let isZero (a : Nat) = a
-letrec isZero (rec) (a) = a
-letrec isZero (rec : Nat -> Nat) (a : Nat) = a
-letrec
-(\v:(Nothing | Just Nat).variantCase v of Nothing => False | Just=x => True) (tag Just 4 as (Nothing | Just Nat))
-(\v:(Nothing | Just Nat).variantCase v of Nothing => False | Just=x => True) (tag Nothing as (Nothing | Just Nat))
-:t (\v:(Nothing | Just Nat).variantCase v of Nothing => False | Just=x => True)
-(\v:(Nothing | Just Nat).variantCase v of Nothing => False | Just=x => True)

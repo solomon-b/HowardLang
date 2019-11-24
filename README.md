@@ -70,13 +70,13 @@ Nothing | Just Nat
 Cons (1, Cons (2, Cons (3, Nil)))
 
 λ> :t (tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
-Rec Type NatList = Nil | Cons (Nat, VarT 0)
+Mu. NatList = Unit | (Nat, NatList)
 
 λ> tag Branch (tag Leaf, 0, tag Branch (tag Leaf, 1, tag Leaf)) as mu.NatTree: Leaf | Branch (NatTree, Nat, NatTree)
 Branch (Leaf, 0, Branch (Leaf, 1, Leaf))
 
 λ> :t tag Branch (tag Leaf, 0, tag Branch (tag Leaf, 1, tag Leaf)) as mu.NatTree: Leaf | Branch (NatTree, Nat, NatTree)
-Rec Type NatTree = Leaf | Branch (VarT 0, Nat, VarT 0)
+Mu. NatTree = Unit | (NatTree, Nat, NatTree)
 ```
 
 #### Functions:

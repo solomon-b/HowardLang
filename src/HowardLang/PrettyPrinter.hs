@@ -37,13 +37,6 @@ showNat nat = show $ f nat
 commas :: [String] -> String
 commas = foldl1 (\a b -> a ++ ", " ++ b)
 
-prettyVariant :: [(Tag, Type)] -> String
-prettyVariant tys = unwords . intersperse "|" $ f <$> tys
-  where
-    f :: (Varname, Type) -> String
-    f (var, UnitT) = var
-    f (var, ty) = var ++ " " ++ pretty ty
-
 class Show a => Pretty a where
   pretty :: a -> String
   pretty = show
@@ -54,22 +47,58 @@ instance Pretty String where
   pretty = id
 
 instance Pretty Type where
-  pretty BoolT = "Bool"
-  pretty NatT  = "Nat"
-  pretty UnitT = "Unit"
-  pretty (FuncT f1@(FuncT _ _) f2@(FuncT _ _)) = "(" ++ pretty f1 ++ ")" ++
-                                               " -> " ++ "(" ++ pretty f2 ++ ")"
-  pretty (FuncT f1@(FuncT _ _) t2) = "(" ++ pretty f1 ++ ")" ++ " -> " ++ pretty t2
-  pretty (FuncT t1 f2@(FuncT _ _)) = pretty t1 ++ " -> " ++ "(" ++ pretty f2 ++ ")"
-  pretty (FuncT t1 t2) = pretty t1 ++ " -> " ++ pretty t2
-  pretty (PairT t1 t2) = "<" ++ pretty t1 ++ ", " ++ pretty t2 ++ ">"
-  pretty (TupleT ts) = let tys = foldr1 (\a b -> a ++ ", " ++ b) $ pretty <$> ts in "(" ++ tys ++ ")"
-  pretty (RecordT ts) = "{" ++ commas (fmap (pretty . snd) ts) ++ "}"
-  pretty (SumT left right) = "Sum " ++ pretty left ++ " " ++ pretty right
-  pretty (VariantT tys) = prettyVariant tys
-  -- TODO: Write a proper pretty instance for FixT
-  pretty (FixT var ty) = "Rec Type " ++ var ++ " = " ++ pretty ty
-  pretty (VarT i) = "VarT " ++ pretty i
+  pretty ty = runReader (f ty) []
+    where
+      f :: Type -> Reader Bindings String
+      f BoolT = pure "Bool"
+      f NatT  = pure "Nat"
+      f UnitT = pure "Unit"
+      f (FuncT f1@(FuncT _ _) f2@(FuncT _ _)) = do
+        f1' <- f f1
+        f2' <- f f2
+        pure $ "(" ++ f1'  ++ ")" ++ " -> " ++ "(" ++ f2' ++ ")"
+      f (FuncT f1@(FuncT _ _) t2) = do
+        f1' <- f f1
+        t2' <- f t2
+        pure $ "(" ++ f1' ++ ")" ++ " -> " ++ t2'
+      f (FuncT t1 f2@(FuncT _ _)) = do
+        t1' <- f t1
+        f2' <- f f2
+        pure $ t1' ++ " -> " ++ "(" ++ f2' ++ ")"
+      f (FuncT t1 t2) = do
+        t1' <- f t1
+        t2' <- f t2
+        pure $ t1' ++ " -> " ++ t2'
+      f (PairT t1 t2) = do
+        t1' <- f t1
+        t2' <- f t2
+        pure $ "<" ++ t1' ++ ", " ++ t2' ++ ">"
+      f (TupleT ts) = do
+        ts' <- traverse f ts
+        pure $ "(" ++ commas ts' ++ ")"
+      f (RecordT ts) = do
+        ts' <- traverse (f . snd) ts
+        pure $ "{" ++ commas ts' ++ "}"
+      f (SumT left right) = do
+        left' <- f left
+        right' <- f right
+        pure $ "Sum " ++ left' ++ " " ++ right'
+      f (VariantT tys) = do
+        tys' <- (traverse . traverse) f tys
+        pure . unwords . intersperse "|" $ snd <$> tys'
+      f (FixT var ty1) = do
+        ty1' <- local ((:) var) (f ty1)
+        pure $ "Mu. " ++ var ++ " = " ++ ty1'
+      f (VarT i) = ask >>= \ctx -> pure $ ctx !! i
+
+
+prettyVariant :: [(Tag, Type)] -> Reader Bindings String
+prettyVariant tys = pure . unwords . intersperse "|" $ f <$> tys
+  where
+    f :: (Varname, Type) -> String
+    f (var, UnitT) = var
+    f (var, ty) = var ++ " " ++ pretty ty
+        --t1' <- local (const (x:ctx)) (f t1)
 
 -- TODO: Replace this with a more robust pretty printer
 instance Pretty Term where
