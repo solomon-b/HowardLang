@@ -422,8 +422,6 @@ pVariantPattern = do
       t <- bindLocalVar tagBinder pTerm
       pure (tagVar, Just tagBinder, t)
 
--- λ> (fix (\rec:Nat->Nat->Nat.\x:Nat.\y:Nat.case x of Z => y | (S z) => rec z (S y))) 2 2
--- S (S (S (S Z)))
 pFix :: Parser Term
 pFix = rword "fix" *> (Fix <$> pTerm)
 

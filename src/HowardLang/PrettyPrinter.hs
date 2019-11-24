@@ -32,7 +32,7 @@ showNat nat = show $ f nat
     f :: Term -> Int
     f Z = 0
     f (S n) = 1 + f n
-    f _ = undefined
+    f _ = error "Ooops, typechecker failed to identify an ill typed Nat"
 
 class Pretty a where
   pretty :: a -> String
@@ -79,7 +79,7 @@ instance Pretty Term where
         t1' <- f t1
         t2' <- f t2
         pure $ "(" ++ t1' ++ " " ++ t2' ++ ")"
-      f (Var x) = ask >>= \ctx -> pure $ show ctx-- pure $ ctx !! x
+      f (Var x) = ask >>= \ctx -> pure $ ctx !! x
       f (Abs x ty t1) = do
         ctx <- ask
         t1' <- local (const (x:ctx)) (f t1)
@@ -93,7 +93,7 @@ instance Pretty Term where
         pure $ "(" ++ var ++ " as " ++ pretty ty ++ ")"
       f (As t1 ty) = f t1 >>= \t1' -> pure $ "(" ++ t1' ++ "as" ++ pretty ty ++ ")"
       f Z = pure "0"
-      f s@(S _) = pure $ show s
+      f s@(S _) = pure $ showNat s
       f (If t1 t2 t3) = do
         t1' <- f t1
         t2' <- f t2
