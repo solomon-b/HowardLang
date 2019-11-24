@@ -65,7 +65,6 @@ Nothing | Just Nat
 ```
 
 #### Recursive Types:
-The syntax and pretty printing is especially awful for these right now:
 ```ml
 λ> (tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
 Cons (1, Cons (2, Cons (3, Nil)))
