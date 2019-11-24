@@ -1,3 +1,22 @@
+:t Unit
+let x = {foo=tag Nothing as (Nothing | Just Nat)} in (get x.foo)
+:t tag Nothing as (Nothing | Just Nat)
+:t tag Nothing as (Nothing | Just Nat)
+:t tag Nothing sa (Nothing | Just Nat)
+:t tag Nothing (Nothing | Just Nat)
+let x = {foo=tag Nothing as (Nothing | Just Nat)} in (get x.foo)
+:t let x = {foo=tag Nothing as (Nothing | Just Nat)} in (get x.foo)
+:t let x = {foo=tag Nothing as (Nothing | Just Nat)} in (get x.foo)
+let x = {foo=tag Nothing as (Nothing | Just Nat)} in (get x.foo)
+get {foo=tag Nothing as (Nothing | Just Nat)}.foo
+get {foo=1}.foo
+get {foo=1}.foo
+{foo=1}.foo
+{foo=tag Nothing as (Nothing | Just Nat)}.foo
+let x = {foo=tag Nothing as (Nothing | Just Nat)} in (x)
+let x = {foo=tag Nothing as (Nothing | Just Nat)} in (get x)
+let x = {foo=tag Nothing as (Nothing | Just Nat)} in (get x.foo)
+let x = {foo=Nothing as (Nothing | Just Nat)} in (get x.foo)
 :r
 :t tag Branch (tag Leaf, 0, tag Branch (tag Leaf, 1, tag Leaf)) as mu.NatTree: Leaf | Branch (NatTree, Nat, NatTree)
 tag Branch (tag Leaf, 0, tag Branch (tag Leaf, 1, tag Leaf)) as mu.NatTree: Leaf | Branch (NatTree, Nat, NatTree)
@@ -79,22 +98,3 @@ get {foo=True}.foo
 get {foo=True}[foo]
 get {foo=True}[foo]
 {foo=True}
-get {foo=True}[foo]
-get {foo=True}["foo"]
-get [True, False]
-get [True, False]["0"]
-get [True, False][0]
-[True, False]
-:t case Z of Z => Z | S m => Z
-case Z of Z => Z | S m => Z
-let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in isEven 3
-let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in isEven 4
-let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in isEven 3
-let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in isEven 4
-let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in isEven 2
-let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in isEven 3
-let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in True
-let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Nat) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in True
-let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Nat) (n : Nat) = if: isZero n then: True else: if isZero (pred n) then: False else: rec (pred (pred n)) in True
-let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec (rec : Nat -> Nat) (n : Nat) = if: isZero n then: True else: if isZero (pred n) then: False else: rec (pred (pred n)) in True
-let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in isZero (pred 2)

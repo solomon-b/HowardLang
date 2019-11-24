@@ -79,13 +79,14 @@ instance Pretty Type where
       f (RecordT ts) = do
         ts' <- traverse (f . snd) ts
         pure $ "{" ++ commas ts' ++ "}"
-      f (VariantT tys) = do
-        tys' <- (traverse . traverse) f tys
-        pure . unwords . intersperse "|" $ snd <$> tys'
       f (FixT var ty1) = do
         ty1' <- local ((:) var) (f ty1)
         pure $ "Mu. " ++ var ++ " = " ++ ty1'
       f (VarT i) = ask >>= \ctx -> pure $ ctx !! i
+      f (VariantT tys) = do
+        tys' <- (traverse . traverse) f tys
+        let g (tag, ty') = if ty' == "Unit" then tag else ty'
+        pure . unwords . intersperse "|" $ g <$> tys'
 
 
 prettyVariant :: [(Tag, Type)] -> Reader Bindings String

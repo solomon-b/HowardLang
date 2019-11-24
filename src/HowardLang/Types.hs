@@ -1,4 +1,3 @@
-{-# LANGUAGE GADTs #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 module HowardLang.Types where
 
@@ -33,10 +32,10 @@ data Term
   | Fst Term
   | Snd Term
   | Tuple [(Varname, Term)]
-  | Get Term Varname -- Get Tuple Nat
+  | Get Term Varname
   | Record [(Varname, Term)]
   | Tag String Term
-  | VariantCase Term [(Tag, Maybe Binder, Term)] -- [(binder, tag)]
+  | VariantCase Term [(Tag, Maybe Binder, Term)]
   | Fix Term
   | Roll Type Term
   | Unroll Type Term
@@ -74,8 +73,7 @@ instance ShowErrorComponent UnboundError where
     "Unbound error: " ++ msg
 
 type ParseErr = ParseErrorBundle String UnboundError
-data TypeErr = TypeError String deriving (Show, Eq)
-
+newtype TypeErr = TypeError String deriving (Show, Eq)
 data Err = P ParseErr | T TypeErr deriving (Show, Eq)
 
 instance Exception Err
@@ -87,7 +85,6 @@ instance Exception Err
 instance Functor ((,,) a b) where
   fmap f (a,b,c) = (a, b, f c)
 
--- Other then Application, what should not be a value?
 isVal :: Context -> Term -> Bool
 isVal _ (Abs _ _ _) = True
 isVal _ Tru         = True
@@ -103,7 +100,6 @@ isVal c (Tag _ t) = isVal c t
 isVal c (Roll _ t)  = isVal c t
 isVal _ (Unroll _ (Roll _ _))  = False
 isVal c (Unroll _ t)  = isVal c t
--- TODO: Should Lets and Cases be considered values if their terms are fully reduced? I think so?
 isVal _ _           = False
 
 isNat :: Term -> Bool
@@ -119,5 +115,5 @@ allEqual [] = True
 allEqual (x:xs) = all (== x) xs
 
 -- TODO: Fix this bug:
--- λ> let x = {foo=inr True : Sum Nat Bool} in (get x[foo])
+-- λ> let x = {foo=Nothing as (Nothing | Just Nat)} in (get x.foo)
 -- typedLCI: Prelude.!!: index too large

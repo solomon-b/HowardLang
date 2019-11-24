@@ -8,6 +8,8 @@ import Control.Monad.Reader
 import Data.List
 import Data.Maybe (mapMaybe)
 
+import Debug.Trace
+
 import HowardLang.Types
 import HowardLang.PrettyPrinter
 
@@ -145,7 +147,11 @@ typecheck (Get (Record ts) v) =
   case lookup v ts of
     Just t -> typecheck t
     Nothing -> throwTypeError' $ "Type Error: No such field " ++ v ++ " in record"
-typecheck (Get t1 _) = throwTypeError' $ "Type Error: " ++ pretty t1 ++ " is not a Tuple or Record."
+typecheck (Get t1 v) = typecheck t1 >>= \case
+  ty@(RecordT tys) -> maybe (err ty) pure (lookup v tys)
+  ty@(TupleT tys) -> let i = read v in if i < length tys then pure (tys !! i) else err ty
+  t1' -> err t1' -- TODO: FIX ERROR MESSAGES
+  where err t1' = throwTypeError' $ "!!!Type Error: " ++ show t1' ++ " is not a Tuple or Record."
 -- TODO: Typechecker is passing `{foo=1, foo=True}`
 typecheck (Record ts) = (traverse . traverse) typecheck ts >>= pure . RecordT
 typecheck (Fix t) = typecheck t >>= \case
