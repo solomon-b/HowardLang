@@ -3,8 +3,11 @@ module HowardLang.Parser.Expression where
 import Control.Applicative hiding (some, many)
 import Control.Monad.Reader
 
+import Lens.Micro
+
 import Data.Functor
 import Data.List
+import Data.Monoid
 
 import Text.Megaparsec
 import Text.Megaparsec.Char
@@ -209,6 +212,7 @@ pAs :: Parser Term
 pAs = parens $ As <$> pTerm <* rword "as" <*> parseType
 
 -- TODO: Detect recursive call to `var` in `t1`
+
 pLet :: Parser Term
 pLet = do
   rword "let"
@@ -245,6 +249,30 @@ pLetRec = do
   rword "in"
   t2 <- bindLocalVar var pTerm
   pure $ Let var (Fix t1) t2
+  --isRec <- detRecLet var t1
+  --case isRec of
+  --  Just _ -> pure $ Let var (Fix t1) t2
+  --  Nothing -> pure $ Let var t1 t2
+
+detRecLet :: Binder -> Term -> Reader PBindings (Maybe Binder)
+detRecLet bndr = \case
+  Var i             -> ask >>= \ctx -> if (ctx ^. bindings) !! i == bndr then pure (Just bndr) else pure Nothing
+  If t1 t2 t3       -> getFirst . foldMap First <$> traverse (detRecLet bndr) [t1, t2, t3]
+  S t1              -> detRecLet bndr t1
+  Case t1 t2 _ t3   -> getFirst . foldMap First <$> traverse (detRecLet bndr) [t1, t2, t3]
+  As t1 _           -> detRecLet bndr t1
+  Let _ t1 t2       -> getFirst . foldMap First <$> traverse (detRecLet bndr) [t1, t2]
+  Pair t1 t2        -> getFirst . foldMap First <$> traverse (detRecLet bndr) [t1, t2]
+  Fst t1            -> detRecLet bndr t1
+  Snd t1            -> detRecLet bndr t1
+  Tuple ts          -> getFirst . foldMap First <$> traverse (detRecLet bndr . snd) ts
+  Record ts         -> getFirst . foldMap First <$> traverse (detRecLet bndr . snd) ts
+  Tag _ t1          -> detRecLet bndr t1
+  VariantCase t1 ts -> getFirst . foldMap First <$> traverse (detRecLet bndr) (t1 : ((^. _3) <$> ts))
+  Fix t1            -> detRecLet bndr t1
+  Roll _ t1         -> detRecLet bndr t1
+  Unroll _ t1       -> detRecLet bndr t1
+  _ -> pure Nothing
 
 pFst :: Parser Term
 pFst = rword "fst" *> (Fst <$> pTerm)
@@ -252,7 +280,7 @@ pFst = rword "fst" *> (Fst <$> pTerm)
 pSnd :: Parser Term
 pSnd = rword "snd" *> (Snd <$> pTerm)
 
--- TODO: Rewrite Case parser to work with both sums and nats
+-- TODO Remove along with Nats when I have casing on recursive types and data type bindings/aliases
 pCase :: Parser Term
 pCase = do
   rword "case"
@@ -277,7 +305,7 @@ pTag = do
     parseType
   case optType of
     Just ty ->
-      case findRec ty of
+      case findRecType ty of
         Just fixT -> pure $ Roll fixT t1
         Nothing -> pure $ As t1 ty
     Nothing -> pure t1
@@ -287,14 +315,14 @@ pTag = do
     enum :: Parser Term
     enum = Tag <$> constructor <*> pure Unit
 
-findRec :: Type -> Maybe Type
-findRec (FuncT ty1 ty2) = findRec ty1 <|> findRec ty2
-findRec (PairT ty1 ty2) = findRec ty1 <|> findRec ty2
-findRec (TupleT tys) = foldr (<|>) Nothing (fmap findRec tys)
-findRec (RecordT tys) = foldr (<|>) Nothing  $ fmap (findRec . snd) tys
-findRec (VariantT tys) = foldr (<|>) Nothing  $ fmap (findRec . snd) tys
-findRec ty@(FixT _ _) = Just ty
-findRec _ = Nothing
+findRecType :: Type -> Maybe Type
+findRecType (FuncT ty1 ty2) = findRecType ty1 <|> findRecType ty2
+findRecType (PairT ty1 ty2) = findRecType ty1 <|> findRecType ty2
+findRecType (TupleT tys) = foldr (<|>) Nothing (fmap findRecType tys)
+findRecType (RecordT tys) = foldr (<|>) Nothing  $ fmap (findRecType . snd) tys
+findRecType (VariantT tys) = foldr (<|>) Nothing  $ fmap (findRecType . snd) tys
+findRecType ty@(FixT _ _) = Just ty
+findRecType _ = Nothing
 
 pVariantCase :: Parser Term
 pVariantCase = do

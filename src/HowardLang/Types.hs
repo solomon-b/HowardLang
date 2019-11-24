@@ -22,13 +22,13 @@ data Term
   | Tru
   | Fls
   | If Term Term Term
-  | Z
+  | Z -- TODO: Remove nats when I have casing on rec types and data types/alias bindings
   | S Term
   | Case Term Term Varname Term
   | Unit
   | As Term Type
   | Let Varname Term Term
-  | Pair Term Term
+  | Pair Term Term -- NOTE: Should I remove pairs?
   | Fst Term
   | Snd Term
   | Tuple [(Varname, Term)]
@@ -86,7 +86,7 @@ instance Functor ((,,) a b) where
   fmap f (a,b,c) = (a, b, f c)
 
 isVal :: Context -> Term -> Bool
-isVal _ (Abs _ _ _) = True
+isVal _ Abs{}       = True
 isVal _ Tru         = True
 isVal _ Fls         = True
 isVal _ Z           = True
@@ -113,7 +113,3 @@ constrEq = (==) `on` toConstr
 allEqual :: Eq a => [a] -> Bool
 allEqual [] = True
 allEqual (x:xs) = all (== x) xs
-
--- TODO: Fix this bug:
--- λ> let x = {foo=Nothing as (Nothing | Just Nat)} in (get x.foo)
--- typedLCI: Prelude.!!: index too large
