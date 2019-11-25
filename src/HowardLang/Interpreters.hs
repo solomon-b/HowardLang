@@ -72,6 +72,10 @@ Substitution Rules:
 [1 -> 2]\.1 = \.2
 -}
 
+embedR :: (Monad m, Corecursive t, Traversable (Base t))
+       => Base t (ReaderT r m t)
+       -> ReaderT r m t
+embedR x = ReaderT $ \e -> embed <$> traverse (`runReaderT` e) x
 
 mkTermAlg :: (Int -> Reader ctx Term) -> (ctx -> ctx) -> (TermF (Reader ctx Term) -> Reader ctx Term)
 mkTermAlg baseCase update = \case
@@ -83,24 +87,7 @@ mkTermAlg baseCase update = \case
     t1' <- t1
     cases' <- (traverse . traverseOf _3) (local update) cases
     pure $ VariantCase t1' cases'
-  TruF -> pure Tru
-  FlsF -> pure Fls
-  UnitF -> pure Unit
-  ZF -> pure Z
-  SF t1 -> S <$> t1
-  AppF t1 t2 -> App <$> t1 <*> t2
-  IfF t1 t2 t3 -> If <$> t1 <*> t2 <*> t3
-  AsF t1 ty -> flip As ty <$> t1
-  PairF t1 t2 -> Pair <$> t1 <*> t2
-  FstF t1 -> Fst <$> t1
-  SndF t1 -> Snd <$> t1
-  TupleF ts -> Tuple <$> (traverse . traverse) id ts
-  RecordF ts -> Record <$> (traverse . traverse) id ts
-  GetF t1 v -> flip Get v <$> t1
-  TagF tag t1 -> Tag tag <$> t1
-  FixLetF t1 -> FixLet <$> t1
-  RollF ty t1 -> Roll ty <$> t1
-  UnrollF ty t1 -> Unroll ty <$> t1
+  t -> embedR t
 
 shift :: DeBruijn -> Term -> Term
 shift target t = runReader (cataA algebra t) 0
@@ -112,8 +99,6 @@ shift target t = runReader (cataA algebra t) 0
     baseCase :: Int -> Reader Int Term
     baseCase x = ask >>= \i -> if x >= i then pure (Var (x + target)) else pure (Var x)
 
-data SubstCtx = SubstCtx { _term :: Term, _dbjn :: Int }
-
 subst :: DeBruijn -> Term -> Term -> Term
 subst target s t = runReader (cataA algebra t) (s, 0)
   where
@@ -123,12 +108,16 @@ subst target s t = runReader (cataA algebra t) (s, 0)
     update (s', c) = (shift c s', c+1)
     baseCase :: Int -> Reader (Term, Int) Term
     baseCase x = ask >>= \ctx -> if x == target + snd ctx then pure (fst ctx) else pure (Var x)
+
 substTop :: Term -> Term -> Term
 substTop s t = shift (-1) (subst 0 (shift 1 s) t)
 
+------------------
+--- Evaluators ---
+------------------
 -- TODO: Reimplement with `Data Term' a = Reduced a | Unreduced a`
 -- TODO: Be more consistent with `not isVal` vs `isVal`. Will casing on `Term'` make this irrelevent? Yes?
--- Single Step Evaluation Function
+
 singleEval :: Context -> Term -> Maybe Term
 singleEval ctx t =
   case t of
