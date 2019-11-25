@@ -72,22 +72,17 @@ Substitution Rules:
 [1 -> 2]\.1 = \.2
 -}
 
-embedR :: (Monad m, Corecursive t, Traversable (Base t))
-       => Base t (ReaderT r m t)
-       -> ReaderT r m t
-embedR x = ReaderT $ \e -> embed <$> traverse (`runReaderT` e) x
-
 mkTermAlg :: (Int -> Reader ctx Term) -> (ctx -> ctx) -> (TermF (Reader ctx Term) -> Reader ctx Term)
 mkTermAlg baseCase update = \case
-  VarF x -> baseCase x
-  AbsF v ty t1 -> Abs v ty <$> local update t1
-  LetF v t1 t2 -> t1 >>= \t1' -> Let v t1' <$> local update t2
-  CaseF l m x n -> l >>= \l' -> m >>= \m' -> Case l' m' x <$> local update n
+  VarF x                -> baseCase x
+  AbsF v ty t1          -> Abs v ty <$> local update t1
+  LetF v t1 t2          -> t1 >>= \t1' -> Let v t1' <$> local update t2
+  CaseF l m x n         -> l >>= \l' -> m >>= \m' -> Case l' m' x <$> local update n
   VariantCaseF t1 cases -> do
-    t1' <- t1
+    t1'    <- t1
     cases' <- (traverse . traverseOf _3) (local update) cases
     pure $ VariantCase t1' cases'
-  t -> embedR t
+  t -> fmap embed (sequenceA t)
 
 shift :: DeBruijn -> Term -> Term
 shift target t = runReader (cataA algebra t) 0

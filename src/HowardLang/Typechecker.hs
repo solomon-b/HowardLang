@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 module HowardLang.Typechecker where
 
 import Control.Applicative
@@ -5,8 +6,11 @@ import Control.Monad.Except
 import Control.Monad.Identity
 import Control.Monad.Reader
 
+import Data.Functor.Foldable
 import Data.List
 import Data.Maybe (mapMaybe)
+
+import Lens.Micro
 
 import HowardLang.Types
 import HowardLang.PrettyPrinter
@@ -45,7 +49,7 @@ getBinding xs i = snd $ xs !! i
 natToInt :: MonadError Err m => Term -> m Int
 natToInt Z = pure 0
 natToInt (S t) = (+1) <$> natToInt t
-natToInt _ = throwTypeError' $ "Type Error: Excepted Nat"
+natToInt _ = throwTypeError' "Type Error: Excepted Nat"
 
 bindLocalVar :: (MonadReader Context m, MonadError Err m) => Varname -> Type -> Term -> m Type
 bindLocalVar var typ term = local ((:) (var, typ)) (typecheck term)
@@ -56,11 +60,7 @@ bindLocalTags ty1 (tag, bndr, tC) = case lookup tag ty1 of
   Just tyC -> bindLocalVar bndr tyC tC
   Nothing -> throwTypeError' $ "Expected type: " ++ show (VariantT ty1)
 
-sequencePattern :: (Tag, Maybe Binder, Term) -> Maybe (Tag, Binder, Term)
-sequencePattern (tag, Just bndr, trm) = Just (tag, bndr, trm)
-sequencePattern (_, Nothing, _) = Nothing
-
-checkTotal :: MonadError Err m => [(Tag, Maybe Binder, Term)] -> [(Tag, Type)] -> m ()
+checkTotal :: MonadError Err m => [a] -> [b] -> m ()
 checkTotal xs ys = if length xs /= length ys then throwTypeError' "Error: Pattern Match Non-Total" else pure ()
 
 findRec :: Type -> Maybe Type
@@ -72,12 +72,57 @@ findRec (VariantT tys) = foldr (<|>) Nothing  $ fmap (findRec . snd) tys
 findRec ty@(FixT _ _) = Just ty
 findRec _ = Nothing
 
-typecheck ::
-  (MonadError Err m , MonadReader Context m) => Term -> m Type
+typecheck' :: (MonadError Err m , MonadReader Context m) => Term -> m Type
+typecheck' = para ralgebra
+  where
+    -- NOTE: Why arent the monads unifying with this sig and ScopedTypeVariable?
+    --ralgebra :: (MonadError Err m , MonadReader Context m) => TermF (Term, m Type) -> m Type
+    ralgebra = \case
+      VarF i -> asks (`getBinding` i)
+      AppF (t1, mty1) (_, mty2) -> mty1 >>= \case
+        FuncT ty1 ty2 -> do
+          ty2' <- mty2
+          if ty2' == ty1
+            then pure ty2
+            else throwTypeError t1 ty1 ty2'
+        ty -> throwTypeError' $ pretty t1 ++ " :: " ++ show ty ++ " is not a function"
+      AbsF var ty (_, mty2) -> FuncT ty <$> local (update var ty) mty2
+      LetF v (_, mty1) (_, mty2) -> mty1 >>= \ty1 -> local (update v ty1) mty2
+      CaseF (n, mnTy) (z, mzTy) _ (_, msTy) -> mnTy >>= \case
+        NatT -> do
+          zTy <- mzTy
+          sTy <- msTy
+          if zTy == sTy
+            then pure sTy
+            else throwTypeError z zTy sTy
+        nTy -> throwTypeError n nTy NatT
+      VariantCaseF (_, mty1) cases -> mty1 >>= \case
+        VariantT casesT -> do
+          let cases' = mapMaybe (traverseOf _2 id) cases
+          checkTotal cases casesT
+          types <- traverse (bindLocalTags' casesT) cases'
+          if allEqual types
+            then pure $ head types
+            else throwTypeError' $ "Type mismatch between cases: " ++ show types
+        ty -> throwTypeError' $ "Expected a Variant Type but got: " ++ show ty
+      UnitF -> pure UnitT
+      TruF -> pure NatT
+      FlsF -> pure NatT
+      IfF (t1, mty1) (t2, mty2) (_, mty3) -> mty1 >>= \case
+        BoolT -> mty2 >>= \ty2 -> mty3 >>= \ty3 -> if ty2 == ty3 then pure ty2 else throwTypeError t2 ty2 ty3
+        ty1 -> throwTypeError t1 ty1 BoolT
+      SF (t1, mty) -> mty >>= \case
+        NatT -> pure NatT
+        ty -> throwTypeError t1 ty NatT
+      AsF ((t@(Tag tag t1)), mtagTy) ty -> undefined
+    update :: Varname -> Type -> Context -> Context
+    update var ty = (:) (var, ty)
+    bindLocalTags' ty1 (tag, bndr, (t1, mTy)) = case lookup tag ty1 of
+      Just tyC -> local (update bndr tyC) mTy
+      Nothing -> throwTypeError' $ "Expected type: " ++ show (VariantT ty1)
+
+typecheck :: (MonadError Err m , MonadReader Context m) => Term -> m Type
 typecheck (Var i) = asks (`getBinding` i)
-typecheck (Abs var ty t2) = do
-  ty2 <- bindLocalVar var ty t2
-  pure $ FuncT ty ty2
 typecheck (App t1 t2) = typecheck t1 >>= \case
   FuncT ty1 ty2 -> do
     ty2' <- typecheck t2
@@ -85,20 +130,10 @@ typecheck (App t1 t2) = typecheck t1 >>= \case
     then pure ty2
     else throwTypeError t1 ty1 ty2'
   ty -> throwTypeError' $ pretty t1 ++ " :: " ++ show ty ++ " is not a function"
-typecheck Tru = pure BoolT
-typecheck Fls = pure BoolT
-typecheck (If t1 t2 t3) = typecheck t1 >>= \case
-  BoolT -> do
-    ty2 <- typecheck t2
-    ty3 <- typecheck t3
-    if ty2 == ty3
-      then pure ty2
-      else throwTypeError t2 ty2 ty3
-  ty1 -> throwTypeError t1 ty1 BoolT
-typecheck Z = pure NatT
-typecheck (S t) = typecheck t >>= \case
-  NatT -> pure NatT
-  ty -> throwTypeError t ty NatT
+typecheck (Abs var ty t2) = do
+  ty2 <- bindLocalVar var ty t2
+  pure $ FuncT ty ty2
+typecheck (Let v t1 t2) = typecheck t1 >>= \ty1 -> bindLocalVar v ty1 t2
 typecheck (Case n z v s) = typecheck n >>= \case
   NatT -> do
     zTy <- typecheck z
@@ -107,7 +142,26 @@ typecheck (Case n z v s) = typecheck n >>= \case
       then pure sTy
       else throwTypeError z zTy sTy
   ty -> throwTypeError n ty NatT
-typecheck Unit = pure UnitT
+typecheck (VariantCase t1 cases) = typecheck t1 >>= \case
+  (VariantT casesT) -> do
+    let cases' = mapMaybe (traverseOf _2 id) cases
+    checkTotal cases casesT
+    types <- traverse (bindLocalTags casesT) cases'
+    if allEqual types
+    then pure $ head types
+    else throwTypeError' $ "Type mismatch between cases: " ++ show types
+  ty -> throwTypeError' $ "Expected a Variant Type but got: " ++ show ty
+typecheck (If t1 t2 t3) = typecheck t1 >>= \case
+  BoolT -> do
+    ty2 <- typecheck t2
+    ty3 <- typecheck t3
+    if ty2 == ty3
+      then pure ty2
+      else throwTypeError t2 ty2 ty3
+  ty1 -> throwTypeError t1 ty1 BoolT
+typecheck (S t) = typecheck t >>= \case
+  NatT -> pure NatT
+  ty -> throwTypeError t ty NatT
 typecheck (As t@(Tag tag t1) ty) = typecheck t1 >>= \ty1 ->
   case ty of
     (VariantT tys) ->
@@ -120,19 +174,6 @@ typecheck (As t1 ty) =
     if ty1' == ty
        then pure ty
        else throwTypeError t1 ty1' ty
-typecheck (Let v t1 t2) = typecheck t1 >>= \ty1 -> bindLocalVar v ty1 t2
-typecheck (Pair t1 t2) = do
-  ty1 <- typecheck t1
-  ty2 <- typecheck t2
-  pure $ PairT ty1 ty2
-typecheck (Fst (Pair t1 _)) = typecheck t1
-typecheck (Fst t1) = typecheck t1 >>= \case
-  (PairT ty1 _) -> pure ty1
-  ty -> throwTypeError' $ "Expected a Pair but got: " ++ show ty
-typecheck (Snd (Pair _ t2)) = typecheck t2
-typecheck (Snd t) = typecheck t >>= \case
-  (PairT _ ty2) -> pure ty2
-  ty -> throwTypeError' $ "Expected a Pair but got: " ++ show ty
 typecheck (Tuple ts) = TupleT <$> traverse (typecheck . snd) ts
 typecheck (Get (Tuple ts) v) =
   case lookup v ts of
@@ -151,7 +192,6 @@ typecheck (Get t1 v) = typecheck t1 >>= \case
   t1' -> err t1' -- TODO: FIX ERROR MESSAGES
   where err t1' = throwTypeError' $ "!!!Type Error: " ++ show t1' ++ " is not a Tuple or Record."
 -- TODO: Typechecker is passing `{foo=1, foo=True}`
-typecheck (Record ts) = (traverse . traverse) typecheck ts >>= pure . RecordT
 typecheck (FixLet t) = typecheck t >>= \case
   (FuncT ty1 ty2) -> if ty1 == ty2 then pure ty2 else throwTypeError t ty2 ty1
   ty  -> throwTypeError' $ "Type Error: " ++ show ty ++ " is not a function type"
@@ -162,15 +202,6 @@ typecheck (FixLet t) = typecheck t >>= \case
 --        Just ty' | ty' == ty1 -> pure ty
 --        _ -> throwTypeError t ty1 ty -- TODO: Improve this error, it does not reference the sum type.
 --    _ -> error "Foo" -- throwTypeError t ty1 ty
-typecheck (VariantCase t1 cases) = typecheck t1 >>= \case
-  (VariantT casesT) -> do
-    let cases' = mapMaybe sequencePattern cases
-    checkTotal cases casesT
-    types <- traverse (bindLocalTags casesT) cases'
-    if allEqual types
-    then pure $ head types
-    else throwTypeError' $ "Type mismatch between cases: " ++ show types
-  ty -> throwTypeError' $ "Expected a Variant Type but got: " ++ show ty
 typecheck (Unroll u@(FixT _ t1) term) = do
   let u' = typeSubstTop u t1
   ty1 <- typecheck term
@@ -184,7 +215,23 @@ typecheck (Roll u@(FixT _ ty) term) = do
   if ty1 == u'
     then pure u
     else throwTypeError' $ "Type Error: " ++ show u' ++ " != " ++ show ty1
-typecheck Tag{} = error "fck"
+typecheck (Fst (Pair t1 _)) = typecheck t1
+typecheck (Fst t1) = typecheck t1 >>= \case
+  (PairT ty1 _) -> pure ty1
+  ty -> throwTypeError' $ "Expected a Pair but got: " ++ show ty
+typecheck (Snd (Pair _ t2)) = typecheck t2
+typecheck (Snd t) = typecheck t >>= \case
+  (PairT _ ty2) -> pure ty2
+  ty -> throwTypeError' $ "Expected a Pair but got: " ++ show ty
+typecheck (Pair t1 t2) = do
+  ty1 <- typecheck t1
+  ty2 <- typecheck t2
+  pure $ PairT ty1 ty2
+typecheck (Record ts) = (traverse . traverse) typecheck ts >>= pure . RecordT
+typecheck Unit = pure UnitT
+typecheck Tru = pure BoolT
+typecheck Fls = pure BoolT
+typecheck Z = pure NatT
 
 
 -------------------------
