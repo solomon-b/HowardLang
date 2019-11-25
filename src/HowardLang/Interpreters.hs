@@ -1,8 +1,8 @@
 module HowardLang.Interpreters where
 
+import Control.Monad.Reader
 import Control.Applicative
 import Data.Functor.Foldable
-import Data.Monoid (Sum(..))
 import Data.List (find)
 import Lens.Micro
 
@@ -39,10 +39,18 @@ stripAscriptions = cata algebra
   where
     algebra = \case
       AsF t1 _ -> t1
-      t1 -> embed t1
+      t1       -> embed t1
 
 depth :: Term -> Integer
-depth = cata $ foldr (\a b -> 1 + max a b) 0
+depth = cata algebra
+  where
+    algebra = \case
+      VarF _ -> 0
+      UnitF  -> 0
+      TruF   -> 0
+      FlsF   -> 0
+      ZF     -> 0
+      t      -> maximum $ fmap (+1) t
 
 size :: Term -> Integer
 size = cata $ foldr (+) 1
@@ -51,17 +59,46 @@ size = cata $ foldr (+) 1
 --- Evaluation ---
 ------------------
 
-shiftF :: DeBruijn -> Term -> Term
-shiftF target = cata (embed . algebra 0)
+addPrevious :: [Int] -> [Int]
+addPrevious xs = runReader (cataA algebra xs) 0
   where
-    algebra :: DeBruijn -> TermF Term -> TermF Term
-    algebra i = \case
-      VarF x -> if x >= i then VarF (x + target) else VarF x
-      AbsF v ty t1 -> undefined
-      LetF v t1 t2 -> undefined
-      CaseF l m x n -> undefined
-      VariantCaseF t1 cases -> undefined
-      t1 -> t1
+    algebra :: ListF Int (Reader Int [Int]) -> Reader Int [Int]
+    algebra Nil = pure []
+    algebra (Cons curr rest) = do
+      prev <- ask
+      pure $ (curr + prev) : runReader rest curr
+
+shiftF :: DeBruijn -> Term -> Term
+shiftF target t = runReader (cataA algebra t) target
+  where
+    algebra :: TermF (Reader Int Term) -> Reader Int Term
+    algebra = \case
+      VarF x -> ask >>= \i -> if x >= i then pure (Var (x + target)) else pure (Var x)
+      AbsF v ty t1 -> Abs v ty <$> local (+1) t1
+      LetF v t1 t2 -> t1 >>= \t1' -> Let v t1' <$> local (+1) t2
+      CaseF l m x n -> l >>= \l' -> m >>= \m' -> Case l' m' x <$> local (+1) n
+      VariantCaseF t1 cases -> do
+        t1' <- t1
+        cases' <- (traverse . traverseOf _3) (local (+1)) cases
+        pure $ VariantCase t1' cases'
+      TruF -> pure Tru
+      FlsF -> pure Fls
+      UnitF -> pure Unit
+      ZF -> pure Z
+      SF t1 -> S <$> t1
+      AppF t1 t2 -> App <$> t1 <*> t2
+      IfF t1 t2 t3 -> t1 >>= \t1' -> t2 >>= \t2' -> t3 >>= \t3' -> pure $ If t1' t2' t3'
+      AsF t1 ty -> flip As ty <$> t1
+      PairF t1 t2 -> Pair <$> t1 <*> t2
+      FstF t1 -> Fst <$> t1
+      SndF t1 -> Snd <$> t1
+      TupleF ts -> Tuple <$> (traverse . traverse) id ts
+      RecordF ts -> Record <$> (traverse . traverse) id ts
+      GetF t1 v -> flip Get v <$> t1
+      TagF tag t1 -> Tag tag <$> t1
+      FixLetF t1 -> FixLet <$> t1
+      RollF ty t1 -> Roll ty <$> t1
+      UnrollF ty t1 -> Unroll ty <$> t1
 
 shift :: DeBruijn -> Term -> Term
 shift target t = f 0 t
