@@ -30,6 +30,7 @@ dependencies:
 - transformers
 - text
 - microlens
+- recursion-schemes
 
 default-extensions:
   - InstanceSigs
@@ -47,7 +48,6 @@ library:
     - HowardLang.Types
     - HowardLang.Typechecker
     - HowardLang.Parser
-    - HowardLang.AscribeTree
     - HowardLang.PrettyPrinter
     - HowardLang.Interpreters
     - HowardLang.Repl

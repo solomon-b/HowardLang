@@ -8,8 +8,6 @@ import Control.Monad.Reader
 import Data.List
 import Data.Maybe (mapMaybe)
 
-import Debug.Trace
-
 import HowardLang.Types
 import HowardLang.PrettyPrinter
 
@@ -154,7 +152,7 @@ typecheck (Get t1 v) = typecheck t1 >>= \case
   where err t1' = throwTypeError' $ "!!!Type Error: " ++ show t1' ++ " is not a Tuple or Record."
 -- TODO: Typechecker is passing `{foo=1, foo=True}`
 typecheck (Record ts) = (traverse . traverse) typecheck ts >>= pure . RecordT
-typecheck (Fix t) = typecheck t >>= \case
+typecheck (FixLet t) = typecheck t >>= \case
   (FuncT ty1 ty2) -> if ty1 == ty2 then pure ty2 else throwTypeError t ty2 ty1
   ty  -> throwTypeError' $ "Type Error: " ++ show ty ++ " is not a function type"
 --typecheck t@(Tag tag t1 ty) = typecheck t1 >>= \ty1 ->

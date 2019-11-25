@@ -1,10 +1,18 @@
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
 module HowardLang.Types where
 
 import Control.Exception (Exception)
 
 import Data.Data
 import Data.Function
+
+import Data.Functor.Foldable.TH
+--import Language.Haskell.TH
+--import GHC.Generics (Generic)
 
 import Text.Megaparsec
 
@@ -36,7 +44,7 @@ data Term
   | Record [(Varname, Term)]
   | Tag String Term
   | VariantCase Term [(Tag, Maybe Binder, Term)]
-  | Fix Term
+  | FixLet Term
   | Roll Type Term
   | Unroll Type Term
   deriving (Show, Eq)
@@ -53,6 +61,8 @@ data Type
   | FixT Varname Type
   | VarT DeBruijn
   deriving (Show, Data, Eq)
+
+makeBaseFunctor ''Term
 
 -- TODO: Implement a Context for type aliases!
 -- https://gist.github.com/ssbothwell/3a263a13df31942c292585d608c3892b

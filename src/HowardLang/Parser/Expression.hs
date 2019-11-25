@@ -238,7 +238,6 @@ parseAbsWrappedTerm (Just xs) = do
   let bindings' = foldl (flip bindVar) ctx $ fst <$> xs
   foldr (\(var, ty) t -> Abs var ty <$> t) (local (const bindings') pTerm) xs
 
--- TODO: Add sugar to add `rec` param automagically
 pLetRec :: Parser Term
 pLetRec = do
   rword "letrec"
@@ -248,31 +247,14 @@ pLetRec = do
   t1 <- parseAbsWrappedTerm params
   rword "in"
   t2 <- bindLocalVar var pTerm
-  pure $ Let var (Fix t1) t2
-  --isRec <- detRecLet var t1
-  --case isRec of
-  --  Just _ -> pure $ Let var (Fix t1) t2
-  --  Nothing -> pure $ Let var t1 t2
-
-detRecLet :: Binder -> Term -> Reader PBindings (Maybe Binder)
-detRecLet bndr = \case
-  Var i             -> ask >>= \ctx -> if (ctx ^. bindings) !! i == bndr then pure (Just bndr) else pure Nothing
-  If t1 t2 t3       -> getFirst . foldMap First <$> traverse (detRecLet bndr) [t1, t2, t3]
-  S t1              -> detRecLet bndr t1
-  Case t1 t2 _ t3   -> getFirst . foldMap First <$> traverse (detRecLet bndr) [t1, t2, t3]
-  As t1 _           -> detRecLet bndr t1
-  Let _ t1 t2       -> getFirst . foldMap First <$> traverse (detRecLet bndr) [t1, t2]
-  Pair t1 t2        -> getFirst . foldMap First <$> traverse (detRecLet bndr) [t1, t2]
-  Fst t1            -> detRecLet bndr t1
-  Snd t1            -> detRecLet bndr t1
-  Tuple ts          -> getFirst . foldMap First <$> traverse (detRecLet bndr . snd) ts
-  Record ts         -> getFirst . foldMap First <$> traverse (detRecLet bndr . snd) ts
-  Tag _ t1          -> detRecLet bndr t1
-  VariantCase t1 ts -> getFirst . foldMap First <$> traverse (detRecLet bndr) (t1 : ((^. _3) <$> ts))
-  Fix t1            -> detRecLet bndr t1
-  Roll _ t1         -> detRecLet bndr t1
-  Unroll _ t1       -> detRecLet bndr t1
-  _ -> pure Nothing
+  pure $ Let var (FixLet t1) t2
+{-
+TODO: Recursion Sugar:
+I want to be able to parse this:
+let f (x : Nat) (y : Nat) = case x of Z => y | (S n) => f n (S y) in f
+And detect the recursion and construct this:
+Let "f" (Fix (Abs "rec" (FuncT NatT (FuncT NatT NatT)) (Abs "x" "NatT" (Abs "y" NatT <BODY>))))
+-}
 
 pFst :: Parser Term
 pFst = rword "fst" *> (Fst <$> pTerm)
@@ -346,7 +328,7 @@ pVariantPattern = do
       pure (tagVar, Just tagBinder, t)
 
 pFix :: Parser Term
-pFix = rword "fix" *> (Fix <$> pTerm)
+pFix = rword "fix" *> (FixLet <$> pTerm)
 
 -- TODO: Figure out how to prevent infinite recursion if I remove the reserved word.
 pGet :: Parser Term

@@ -14,7 +14,6 @@ import HowardLang.Typechecker
 import HowardLang.Parser
 import HowardLang.PrettyPrinter
 import HowardLang.Interpreters
-import HowardLang.AscribeTree
 
 ------------
 --- Main ---

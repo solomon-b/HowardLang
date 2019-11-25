@@ -1,50 +1,67 @@
 module HowardLang.Interpreters where
 
 import Control.Applicative
+import Data.Functor.Foldable
 import Data.Monoid (Sum(..))
 import Data.List (find)
+import Lens.Micro
 
 import HowardLang.Types
-import HowardLang.AscribeTree
+import HowardLang.Typechecker
 
 
--------------
---- Depth ---
--------------
+--------------------------
+--- Tree Manipulations ---
+--------------------------
+
+ascribeRolls :: Term -> Term
+ascribeRolls = cata algebra
+  where
+    algebra = \case
+      RollF u@(FixT _ ty) t1 ->
+        let u'  = typeSubstTop u ty
+            t1' = cata (embed . ascribeChildRollsF u) t1
+        in cata (embed . ascribeTagsF u') t1'
+      t1 -> embed t1
+
+ascribeChildRollsF :: Type -> TermF Term -> TermF Term
+ascribeChildRollsF fixT = \case
+  TagF v t1 -> RollF fixT (Tag v t1)
+  t1 -> t1
+
+ascribeTagsF :: Type -> TermF Term -> TermF Term
+ascribeTagsF as = \case
+  TagF v t1 -> AsF (Tag v t1) as
+  t1 -> t1
+
+stripAscriptions :: Term -> Term
+stripAscriptions = cata algebra
+  where
+    algebra = \case
+      AsF t1 _ -> t1
+      t1 -> embed t1
 
 depth :: Term -> Integer
-depth (Var _) = 0
-depth (Abs _ _ t1) = 1 + depth t1
-depth (App t1 t2) = depth t1 + depth t2
-depth Tru = 0
-depth Fls = 0
-depth Z = 0
-depth Unit = 0
-depth (As t1 _) = depth t1
-depth (S t) = depth t
-depth (If t1 t2 t3) = depth t1 + depth t2 + depth t3
-depth (Case l m _ n) = depth l + depth m + depth n
-depth (Let _ t1 t2) = 1 + depth t1 + depth t2
-depth (Pair t1 t2) = depth t1 + depth t2
-depth (Fst t1) = depth t1
-depth (Snd t1) = depth t1
-depth (Tuple ts) = getSum $ foldMap (Sum . depth . snd) ts
-depth (Record ts) = getSum $ foldMap (Sum . depth . snd) ts
-depth (Get t1 _) = 1 + depth t1
+depth = cata $ foldr (\a b -> 1 + max a b) 0
 
-
-------------
---- Size ---
-------------
-
--- TODO:
 size :: Term -> Integer
-size = undefined
-
+size = cata $ foldr (+) 1
 
 ------------------
 --- Evaluation ---
 ------------------
+
+shiftF :: DeBruijn -> Term -> Term
+shiftF target = cata (embed . algebra 0)
+  where
+    algebra :: DeBruijn -> TermF Term -> TermF Term
+    algebra i = \case
+      VarF x -> if x >= i then VarF (x + target) else VarF x
+      AbsF v ty t1 -> undefined
+      LetF v t1 t2 -> undefined
+      CaseF l m x n -> undefined
+      VariantCaseF t1 cases -> undefined
+      t1 -> t1
 
 shift :: DeBruijn -> Term -> Term
 shift target t = f 0 t
@@ -70,7 +87,7 @@ shift target t = f 0 t
     f i (Get t1 v) = Get (f i t1) v
     f i (Tag tag t1) = Tag tag (f i t1)
     f i (VariantCase t1 cases) = VariantCase (f i t1) $ cases >>= \(tag, bnd, trm) -> pure (tag, bnd, f (i + 1) trm)
-    f i (Fix t1) = Fix (f i t1)
+    f i (FixLet t1) = FixLet (f i t1)
     f i (Roll ty t1) = Roll ty (f i t1)
     f i (Unroll ty t1) = Unroll ty (f i t1)
 
@@ -116,7 +133,7 @@ subst j s t = f 0 s t
         f c s' (Tag tag t1) = Tag tag (f c s' t1)
         f c s' (VariantCase t1 cases) = let cases' = ((fmap . fmap) (f (c + 1) (shift c s')) cases)
                                         in VariantCase (f c s' t1) cases'
-        f c s' (Fix t1) = Fix (f c s' t1)
+        f c s' (FixLet t1) = FixLet (f c s' t1)
         f c s' (Roll ty t1) = Roll ty (f c s' t1)
         f c s' (Unroll ty t1) = Unroll ty (f c s' t1)
 
@@ -169,8 +186,8 @@ singleEval ctx t =
           Just (_,_, term) -> pure $ substTop t1' term
           Nothing -> Nothing
         _ -> Nothing
-    (Fix t1) | not (isVal ctx t1) -> singleEval ctx t1 >>= pure . Fix
-    (Fix (Abs _ _ t2)) -> pure $ substTop t t2
+    (FixLet t1) | not (isVal ctx t1) -> singleEval ctx t1 >>= pure . FixLet
+    (FixLet (Abs _ _ t2)) -> pure $ substTop t t2
     (Roll ty t1) | not $ isVal ctx t1 -> singleEval ctx t1 >>= pure . (Roll ty)
     (Unroll ty t1) | not $ isVal ctx t1 -> singleEval ctx t1 >>= pure . (Unroll ty)
     (Unroll _ (Roll _ v1)) | isVal ctx v1 -> pure v1
@@ -212,7 +229,7 @@ bigStepEval ctx (VariantCase t1 cases) =
   let t1' = bigStepEval ctx t1
   in undefined -- TODO: Implement bigstep variantcase eval
 bigStepEval _ t@(Tag _ _) = t
-bigStepEval ctx t@(Fix t1) = bigStepEval ctx $ substTop t t1
+bigStepEval ctx t@(FixLet t1) = bigStepEval ctx $ substTop t t1
 bigStepEval ctx (Roll ty t1) = Roll ty $ bigStepEval ctx t1
 bigStepEval ctx (Unroll _ (Roll _ t1)) = bigStepEval ctx t1
 bigStepEval ctx (Unroll ty t1) = Unroll ty $ bigStepEval ctx t1
