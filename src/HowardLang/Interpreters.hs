@@ -59,75 +59,6 @@ size = cata $ foldr (+) 1
 --- Evaluation ---
 ------------------
 
-addPrevious :: [Int] -> [Int]
-addPrevious xs = runReader (cataA algebra xs) 0
-  where
-    algebra :: ListF Int (Reader Int [Int]) -> Reader Int [Int]
-    algebra Nil = pure []
-    algebra (Cons curr rest) = do
-      prev <- ask
-      pure $ (curr + prev) : runReader rest curr
-
-shiftF :: DeBruijn -> Term -> Term
-shiftF target t = runReader (cataA algebra t) target
-  where
-    algebra :: TermF (Reader Int Term) -> Reader Int Term
-    algebra = \case
-      VarF x -> ask >>= \i -> if x >= i then pure (Var (x + target)) else pure (Var x)
-      AbsF v ty t1 -> Abs v ty <$> local (+1) t1
-      LetF v t1 t2 -> t1 >>= \t1' -> Let v t1' <$> local (+1) t2
-      CaseF l m x n -> l >>= \l' -> m >>= \m' -> Case l' m' x <$> local (+1) n
-      VariantCaseF t1 cases -> do
-        t1' <- t1
-        cases' <- (traverse . traverseOf _3) (local (+1)) cases
-        pure $ VariantCase t1' cases'
-      TruF -> pure Tru
-      FlsF -> pure Fls
-      UnitF -> pure Unit
-      ZF -> pure Z
-      SF t1 -> S <$> t1
-      AppF t1 t2 -> App <$> t1 <*> t2
-      IfF t1 t2 t3 -> t1 >>= \t1' -> t2 >>= \t2' -> t3 >>= \t3' -> pure $ If t1' t2' t3'
-      AsF t1 ty -> flip As ty <$> t1
-      PairF t1 t2 -> Pair <$> t1 <*> t2
-      FstF t1 -> Fst <$> t1
-      SndF t1 -> Snd <$> t1
-      TupleF ts -> Tuple <$> (traverse . traverse) id ts
-      RecordF ts -> Record <$> (traverse . traverse) id ts
-      GetF t1 v -> flip Get v <$> t1
-      TagF tag t1 -> Tag tag <$> t1
-      FixLetF t1 -> FixLet <$> t1
-      RollF ty t1 -> Roll ty <$> t1
-      UnrollF ty t1 -> Unroll ty <$> t1
-
-shift :: DeBruijn -> Term -> Term
-shift target t = f 0 t
-  where
-    f :: Int -> Term -> Term
-    f i (Var x) = if x >= i then Var (x + target) else Var x
-    f i (Abs v ty t1) = Abs v ty $ f (i + 1) t1
-    f i (App t1 t2) = App (f i t1) (f i t2)
-    f _ Tru = Tru
-    f _ Fls = Fls
-    f _ Unit = Unit
-    f _ Z = Z
-    f i (S t1) = S (f i t1)
-    f i (If t1 t2 t3) = If (f i t1) (f i t2) (f i t3)
-    f i (Case l m x n) = Case (f i l) (f i m) x (f (i + 1) n)
-    f i (As t1 ty) = As (f i t1) ty
-    f i (Let v t1 t2) = Let v (f i t1) (f (i + 1) t2)
-    f i (Pair t1 t2) = Pair (f i t1) (f i t2)
-    f i (Fst t1) = Fst (f i t1)
-    f i (Snd t1) = Snd (f i t1)
-    f i (Tuple ts) = Tuple $ (fmap . fmap) (f i) ts
-    f i (Record ts) = Record $ (fmap . fmap) (f i) ts
-    f i (Get t1 v) = Get (f i t1) v
-    f i (Tag tag t1) = Tag tag (f i t1)
-    f i (VariantCase t1 cases) = VariantCase (f i t1) $ cases >>= \(tag, bnd, trm) -> pure (tag, bnd, f (i + 1) trm)
-    f i (FixLet t1) = FixLet (f i t1)
-    f i (Roll ty t1) = Roll ty (f i t1)
-    f i (Unroll ty t1) = Unroll ty (f i t1)
-
 {-
 TODO: Update Substition Rules for all new terms
 Substitution Rules:
@@ -141,39 +72,57 @@ Substitution Rules:
 [1 -> 2]\.1 = \.2
 -}
 
--- NOTE: Would lenses help clean up this sort of nonsense?
-subst :: DeBruijn -> Term -> Term -> Term
-subst j s t = f 0 s t
-  where f :: DeBruijn -> Term -> Term -> Term
-        f c s' (Var x) = if x == j + c then s' else Var x
-        f c s' (Abs v ty t') = Abs v ty (f (c+1) (shift c s') t')
-        f c s' (App t1 t2) = App (f c s' t1) (f c s' t2)
-        f _ _ Tru = Tru
-        f _ _ Fls = Fls
-        f _ _ Unit = Unit
-        f c s' (If t1 t2 t3) = If (f c s' t1) (f c s' t2) (f c s' t3)
-        f _ _ Z = Z
-        f c s' (S t1) = S (f c s' t1)
-        f c s' (Case l m x n) =
-          Case (f c s' l)
-               (f c s' m)
-               x
-               (f (c+1) (shift c s') n)
-        f c s' (As t1 ty) = As (f c s' t1) ty
-        f c s' (Let v t1 t2) = Let v (f c s' t1) (f (c+1) (shift c s') t2)
-        f c s' (Pair t1 t2) = Pair (f c s' t1) (f c s' t2)
-        f c s' (Fst t1) = Fst (f c s' t1)
-        f c s' (Snd t1) = Snd (f c s' t1)
-        f c s' (Tuple ts) = Tuple $ (fmap . fmap) (f c s' ) ts
-        f c s' (Record ts) = Record $ (fmap . fmap) (f c s' ) ts
-        f c s' (Get t1 v) = Get (f c s' t1) v
-        f c s' (Tag tag t1) = Tag tag (f c s' t1)
-        f c s' (VariantCase t1 cases) = let cases' = ((fmap . fmap) (f (c + 1) (shift c s')) cases)
-                                        in VariantCase (f c s' t1) cases'
-        f c s' (FixLet t1) = FixLet (f c s' t1)
-        f c s' (Roll ty t1) = Roll ty (f c s' t1)
-        f c s' (Unroll ty t1) = Unroll ty (f c s' t1)
 
+mkTermAlg :: (Int -> Reader ctx Term) -> (ctx -> ctx) -> (TermF (Reader ctx Term) -> Reader ctx Term)
+mkTermAlg baseCase update = \case
+  VarF x -> baseCase x
+  AbsF v ty t1 -> Abs v ty <$> local update t1
+  LetF v t1 t2 -> t1 >>= \t1' -> Let v t1' <$> local update t2
+  CaseF l m x n -> l >>= \l' -> m >>= \m' -> Case l' m' x <$> local update n
+  VariantCaseF t1 cases -> do
+    t1' <- t1
+    cases' <- (traverse . traverseOf _3) (local update) cases
+    pure $ VariantCase t1' cases'
+  TruF -> pure Tru
+  FlsF -> pure Fls
+  UnitF -> pure Unit
+  ZF -> pure Z
+  SF t1 -> S <$> t1
+  AppF t1 t2 -> App <$> t1 <*> t2
+  IfF t1 t2 t3 -> If <$> t1 <*> t2 <*> t3
+  AsF t1 ty -> flip As ty <$> t1
+  PairF t1 t2 -> Pair <$> t1 <*> t2
+  FstF t1 -> Fst <$> t1
+  SndF t1 -> Snd <$> t1
+  TupleF ts -> Tuple <$> (traverse . traverse) id ts
+  RecordF ts -> Record <$> (traverse . traverse) id ts
+  GetF t1 v -> flip Get v <$> t1
+  TagF tag t1 -> Tag tag <$> t1
+  FixLetF t1 -> FixLet <$> t1
+  RollF ty t1 -> Roll ty <$> t1
+  UnrollF ty t1 -> Unroll ty <$> t1
+
+shift :: DeBruijn -> Term -> Term
+shift target t = runReader (cataA algebra t) 0
+  where
+    algebra :: TermF (Reader Int Term) -> Reader Int Term
+    algebra = mkTermAlg baseCase update
+    update :: Int -> Int
+    update = (+1)
+    baseCase :: Int -> Reader Int Term
+    baseCase x = ask >>= \i -> if x >= i then pure (Var (x + target)) else pure (Var x)
+
+data SubstCtx = SubstCtx { _term :: Term, _dbjn :: Int }
+
+subst :: DeBruijn -> Term -> Term -> Term
+subst target s t = runReader (cataA algebra t) (s, 0)
+  where
+    algebra :: TermF (Reader (Term, Int) Term) -> Reader (Term, Int) Term
+    algebra = mkTermAlg baseCase update
+    update :: (Term, Int) -> (Term, Int)
+    update (s', c) = (shift c s', c+1)
+    baseCase :: Int -> Reader (Term, Int) Term
+    baseCase x = ask >>= \ctx -> if x == target + snd ctx then pure (fst ctx) else pure (Var x)
 substTop :: Term -> Term -> Term
 substTop s t = shift (-1) (subst 0 (shift 1 s) t)
 

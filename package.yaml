@@ -30,6 +30,7 @@ dependencies:
 - transformers
 - text
 - microlens
+- microlens-th
 - recursion-schemes
 
 default-extensions:
