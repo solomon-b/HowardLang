@@ -63,6 +63,7 @@ data Type
   deriving (Show, Data, Eq)
 
 makeBaseFunctor ''Term
+makeBaseFunctor ''Type
 
 -- TODO: Implement a Context for type aliases!
 -- https://gist.github.com/ssbothwell/3a263a13df31942c292585d608c3892b

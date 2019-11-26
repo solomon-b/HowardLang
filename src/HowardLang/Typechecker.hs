@@ -1,13 +1,11 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module HowardLang.Typechecker where
 
-import Control.Applicative
 import Control.Monad.Except
 import Control.Monad.Identity
 import Control.Monad.Reader
 
 import Data.Functor.Foldable
-import Data.List
 import Data.Maybe (mapMaybe)
 
 import Lens.Micro
@@ -31,14 +29,7 @@ runTypecheckM gamma = runIdentity . runTypecheckT gamma
 typetest :: Term -> Either Err Type
 typetest = runTypecheckM [] . typecheck
 
-getIndexFromContext :: Context -> Varname -> Maybe DeBruijn
-getIndexFromContext ctx var = find (\el -> var == fst el) ctx >>= flip elemIndex ctx
-
-addBinding :: Context -> Varname -> Type -> Context
-addBinding ctx var bnd = (var, bnd) : ctx
-
--- TODO: Make these safer
--- UNSAFE!
+-- TODO: Make this safer
 getBinding :: Context -> Int -> Type
 getBinding xs i = snd $ xs !! i
 
@@ -57,15 +48,6 @@ infixl !!!
 (!!!) [] _ = Nothing
 (!!!) (x:_) 0 = Just x
 (!!!) (_:xs) i = xs !!! (i - 1)
-
-findRec :: Type -> Maybe Type
-findRec (FuncT ty1 ty2) = findRec ty1 <|> findRec ty2
-findRec (PairT ty1 ty2) = findRec ty1 <|> findRec ty2
-findRec (TupleT tys) = foldr (<|>) Nothing (fmap findRec tys)
-findRec (RecordT tys) = foldr (<|>) Nothing  $ fmap (findRec . snd) tys
-findRec (VariantT tys) = foldr (<|>) Nothing  $ fmap (findRec . snd) tys
-findRec ty@(FixT _ _) = Just ty
-findRec _ = Nothing
 
 typecheck :: (MonadError Err m , MonadReader Context m) => Term -> m Type
 typecheck = para ralgebra
@@ -175,27 +157,24 @@ typecheck = para ralgebra
 -------------------------
 
 typeShift :: DeBruijn -> Type -> Type
-typeShift target t = f 0 t
+typeShift target t = runReader (cataA algebra t) 0
   where
-    f :: DeBruijn -> Type -> Type
-    f i (PairT ty1 ty2) = PairT    (f i ty1) (f i ty2)
-    f i (FuncT ty1 ty2) = FuncT    (f i ty1) (f i ty2)
-    f i (TupleT tys)    = TupleT   (f i <$> tys)
-    f i (RecordT tys)   = RecordT  ((fmap . fmap) (f i) tys)
-    f i (VariantT tys)  = VariantT ((fmap . fmap) (f i) tys)
-    f i (VarT j)        = if j >= i then (VarT $ j + target) else VarT j
-    f i (FixT b t1)     = FixT b (f (i + 1) t1)
-    f _ t1              = t1
+    algebra :: TypeF (Reader Int Type) -> Reader Int Type
+    algebra = \case
+      VarTF j    -> ask >>= \i -> if j >= i then pure (VarT $ j + target) else pure (VarT j)
+      FixTF b t1 -> FixT b <$> local (+1) t1
+      t'         -> fmap embed (sequenceA t')
 
 typeSubst :: DeBruijn -> Type -> Type -> Type
-typeSubst a ty (PairT ty1 ty2) = PairT (typeSubst a ty ty1) (typeSubst a ty ty2)
-typeSubst a ty (FuncT ty1 ty2) = FuncT (typeSubst a ty ty1) (typeSubst a ty ty2) -- NOTE: Suspect?
-typeSubst a ty (TupleT tys)    = TupleT $ (typeSubst a ty) <$> tys
-typeSubst a ty (RecordT tys)   = RecordT $ (fmap . fmap) (typeSubst a ty) tys
-typeSubst a ty (VariantT tys)  = VariantT $ (fmap . fmap) (typeSubst a ty) tys
-typeSubst a ty (VarT b)        = if a == b then ty else (VarT b)
-typeSubst a ty (FixT b t)      = FixT b (typeSubst (a+1) ty t)
-typeSubst _ _ t = t
+typeSubst target s t = runReader (cataA algebra t) (s, 0)
+  where
+    algebra :: TypeF (Reader (Type, Int) Type) -> Reader (Type, Int) Type
+    algebra = \case
+      VarTF x    -> ask >>= \ctx -> if x == target + snd ctx then pure (fst ctx) else pure (VarT x)
+      FixTF b ty -> FixT b <$> local update ty
+      t'         -> fmap embed (sequenceA t')
+    update :: (Type, Int) -> (Type, Int)
+    update (ty, i) = (ty, i + 1)
 
 typeSubstTop :: Type -> Type -> Type
 typeSubstTop s t = typeShift (-1) (typeSubst 0 (typeShift 1 s) t)
