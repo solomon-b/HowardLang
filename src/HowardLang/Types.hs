@@ -47,7 +47,7 @@ data Term
   | FixLet Term
   | Roll Type Term
   | Unroll Type Term
-  deriving (Show, Eq)
+  deriving (Show, Eq, Data)
 
 data Type
   = FuncT Type Type
@@ -117,6 +117,10 @@ isNat :: Term -> Bool
 isNat Z = True
 isNat (S n) = isNat n
 isNat _ = False
+
+isAbs :: Term -> Bool
+isAbs Abs{} = True
+isAbs _ = False
 
 constrEq :: Data a => a -> a -> Bool
 constrEq = (==) `on` toConstr

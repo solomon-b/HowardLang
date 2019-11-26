@@ -71,7 +71,7 @@ cmd input =
   let res = do
         parsed  <- ascribeRolls <$> runParse pMain input
         _ <- runTypecheckM [] (typecheck parsed)
-        reduced <- (Right $ multiStepEval [] parsed :: Either Err Term)
+        reduced <- (Right $ multiStepEval parsed :: Either Err Term)
         --let reduced = bigStepEval [] parsed
         return $ pretty reduced
   in liftIO $ either (putStrLn . showE) putStrLn res
