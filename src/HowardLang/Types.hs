@@ -96,22 +96,22 @@ instance Exception Err
 instance Functor ((,,) a b) where
   fmap f (a,b,c) = (a, b, f c)
 
-isVal :: Context -> Term -> Bool
-isVal _ Abs{}       = True
-isVal _ Tru         = True
-isVal _ Fls         = True
-isVal _ Z           = True
-isVal _ Unit        = True
-isVal c (S n)       = isVal c n
-isVal c (As t1 _)   = isVal c t1
-isVal c (Pair t1 t2) = isVal c t1 && isVal c t2
-isVal c (Tuple ts)  = all (isVal c . snd) ts
-isVal c (Record ts)  = all (isVal c . snd) ts
-isVal c (Tag _ t) = isVal c t
-isVal c (Roll _ t)  = isVal c t
-isVal _ (Unroll _ (Roll _ _))  = False
-isVal c (Unroll _ t)  = isVal c t
-isVal _ _           = False
+isVal :: Term -> Bool
+isVal Abs{}       = True
+isVal Tru         = True
+isVal Fls         = True
+isVal Z           = True
+isVal Unit        = True
+isVal (S n)       = isVal n
+isVal (As t1 _)   = isVal t1
+isVal (Pair t1 t2) = isVal t1 && isVal t2
+isVal (Tuple ts)  = all (isVal . snd) ts
+isVal (Record ts)  = all (isVal . snd) ts
+isVal (Tag _ t) = isVal t
+isVal (Roll _ t)  = isVal t
+isVal (Unroll _ (Roll _ _))  = False
+isVal (Unroll _ t)  = isVal t
+isVal _           = False
 
 isNat :: Term -> Bool
 isNat Z = True

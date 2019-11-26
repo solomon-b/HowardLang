@@ -127,59 +127,57 @@ eval t = runReader (para ralgebra t) []
       AppF (Abs _ _ t12, mT1) (v2, mT2) -> pure (substTop v2 t12)
       AppF (_, t1) (_, t2) -> App <$> t1 <*> t2
       AbsF v ty (t1, _) -> pure $ Abs v ty t1
-    isValM :: (MonadReader Context m) => Term -> m Bool
-    isValM v1 = ask >>= \ctx' -> pure $ isVal ctx' v1
 
 
 
 singleEval :: Term -> Maybe Term
 singleEval t =
   case t of
-    (App (Abs _ _ t12) v2) | isVal [] v2 -> pure $ substTop v2 t12
+    (App (Abs _ _ t12) v2) | isVal v2 -> pure $ substTop v2 t12
     (App v1@Abs{} t2) -> App v1 <$> singleEval t2
-    (App t1 t2)                           -> singleEval t1 >>= \t1' -> pure $ App t1' t2
-    (If Tru t2 _)                         -> pure t2
-    (If Fls _ t3)                         -> pure t3
-    (If t1 t2 t3)                         -> singleEval t1 >>= \t1' -> pure $ If t1' t2 t3
-    (S n) | not $ isVal [] n             -> S <$> singleEval n
-    (Case Z m _ _)                        -> pure m
-    (Case (S l) _ _ n) | isVal [] l      -> pure $ substTop l n
-    (Case l m x n)                        -> singleEval l >>= \l' -> pure $ Case l' m x n
-    (As t1 _)                             -> pure t1
-    (Let _ v1 t2) | isVal [] v1          -> pure $ substTop v1 t2
-    (Let v t1 t2)                         -> singleEval t1 >>= \t1' -> pure $ Let v t1' t2
-    (Fst (Pair t1 _))                     -> pure t1
-    (Fst t1)                              -> singleEval t1 >>= \t1' -> pure $ Fst t1'
-    (Snd (Pair _ t2))                     -> pure t2
-    (Snd t1)                              -> singleEval t1 >>= \t1' -> pure $ Snd t1'
-    (Pair t1 t2) | not $ isVal [] t1     -> singleEval t1 >>= \v1 -> pure $ Pair v1 t2
-    (Pair t1 t2)                          -> singleEval t2 >>= \v2 -> pure $ Pair t1 v2
+    (App t1 t2)                   -> singleEval t1 >>= \t1' -> pure $ App t1' t2
+    (If Tru t2 _)                 -> pure t2
+    (If Fls _ t3)                 -> pure t3
+    (If t1 t2 t3)                 -> singleEval t1 >>= \t1' -> pure $ If t1' t2 t3
+    (S n) | not $ isVal n         -> S <$> singleEval n
+    (Case Z m _ _)                -> pure m
+    (Case (S l) _ _ n) | isVal l  -> pure $ substTop l n
+    (Case l m x n)                -> singleEval l >>= \l' -> pure $ Case l' m x n
+    (As t1 _)                     -> pure t1
+    (Let _ v1 t2) | isVal v1      -> pure $ substTop v1 t2
+    (Let v t1 t2)                 -> singleEval t1 >>= \t1' -> pure $ Let v t1' t2
+    (Fst (Pair t1 _))             -> pure t1
+    (Fst t1)                      -> singleEval t1 >>= \t1' -> pure $ Fst t1'
+    (Snd (Pair _ t2))             -> pure t2
+    (Snd t1)                      -> singleEval t1 >>= \t1' -> pure $ Snd t1'
+    (Pair t1 t2) | not $ isVal t1 -> singleEval t1 >>= \v1 -> pure $ Pair v1 t2
+    (Pair t1 t2)                  -> singleEval t2 >>= \v2 -> pure $ Pair t1 v2
     (Tuple ts) ->
       let evalElem [] = Nothing
-          evalElem ((v, t1):ts') | isVal [] t1 = let ts'' = evalElem ts' in ((:) (v, t1)) <$> ts''
+          evalElem ((v, t1):ts') | isVal t1 = let ts'' = evalElem ts' in ((:) (v, t1)) <$> ts''
           evalElem ((v, t1):ts') = let t1' = (,) v <$> singleEval t1 in liftA2 (:) t1' (pure ts')
       in Tuple <$> evalElem ts
     (Record ts) -> do
       let evalElem [] = Nothing
-          evalElem ((v, t1):ts') | isVal [] t1 = let ts'' = evalElem ts' in ((:) (v, t1)) <$> ts''
+          evalElem ((v, t1):ts') | isVal t1 = let ts'' = evalElem ts' in ((:) (v, t1)) <$> ts''
           evalElem ((v, t1):ts') = let t1' = (,) v <$> singleEval t1 in liftA2 (:) t1' (pure ts')
       Record <$> evalElem ts
     (Get (Tuple ts) var) -> lookup var ts
     (Get (Record ts) var) -> lookup var ts
-    (Get t1 var) | not $ isVal [] t1 -> singleEval t1 >>= \t1' -> pure (Get t1' var)
+    (Get t1 var) | not $ isVal t1 -> singleEval t1 >>= \t1' -> pure (Get t1' var)
     (Tag tag t1) -> singleEval t1 >>= \t1' -> pure $ Tag tag t1'
-    (VariantCase t1 cases) | not $ isVal [] t1 -> singleEval t1 >>= \t1' -> pure (VariantCase t1' cases)
+    (VariantCase t1 cases) | not $ isVal t1 -> singleEval t1 >>= \t1' -> pure (VariantCase t1' cases)
     (VariantCase t1 cases) ->
       case t1 of
         (Tag tag t1') -> case find (\(tag',_,_) -> tag == tag') cases of
           Just (_,_, term) -> pure $ substTop t1' term
           Nothing -> Nothing
         _ -> Nothing
-    (FixLet t1) | not (isVal [] t1) -> FixLet <$> singleEval t1
+    (FixLet t1) | not (isVal t1) -> FixLet <$> singleEval t1
     (FixLet (Abs _ _ t2)) -> pure $ substTop t t2
-    (Roll ty t1) | not $ isVal [] t1 -> Roll ty <$> singleEval t1
-    (Unroll ty t1) | not $ isVal [] t1 -> Unroll ty <$> singleEval t1
-    (Unroll _ (Roll _ v1)) | isVal [] v1 -> pure v1
+    (Roll ty t1) | not $ isVal t1 -> Roll ty <$> singleEval t1
+    (Unroll ty t1) | not $ isVal t1 -> Unroll ty <$> singleEval t1
+    (Unroll _ (Roll _ v1)) | isVal v1 -> pure v1
     _ -> Nothing
 
 -- Multistep Evaluation Function
