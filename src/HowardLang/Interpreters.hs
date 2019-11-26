@@ -79,7 +79,7 @@ mkTermAlg baseCase update = \case
   LetF v t1 t2          -> t1 >>= \t1' -> Let v t1' <$> local update t2
   CaseF l m x n         -> l >>= \l' -> m >>= \m' -> Case l' m' x <$> local update n
   VariantCaseF t1 cases -> do
-    t1'    <- t1
+    t1' <- t1
     cases' <- (traverse . traverseOf _3) (local update) cases
     pure $ VariantCase t1' cases'
   t -> fmap embed (sequenceA t)
