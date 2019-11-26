@@ -1,6 +1,8 @@
 # Howard Lang
 
-A pure interpreted lambda calculus with Algebraic and Recursive Types.
+A pure interpreted lambda calculus with Algebraic and Recursive Types. Implemented with recursion schemes. The end goal of this project is System F-Omega.
+
+Special thanks to @totbwf, @monoidmusician, @chrispenner.
 
 ### features:
  - [x] Sum and Product types
@@ -88,7 +90,7 @@ Mu. NatTree = Unit | (NatTree, Nat, NatTree)
 Nat -> Nat
 
 λ> (\n:Nat.n) 1
-S Z
+1
 
 λ> :t (\p:Bool.\n:Nat.n)
 Bool -> (Nat -> Nat)
@@ -100,7 +102,7 @@ Bool -> (Nat -> Nat)
 Nat -> Nat
 
 λ> let f (n : Nat) = S n in f 2
-S (S (S Z))
+3
 
 λ> let f (n : Nat) (p : Bool) = S n in f
 (λ n : Nat. (λ p : Bool. S n))
