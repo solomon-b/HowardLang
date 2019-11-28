@@ -2,7 +2,6 @@ module HowardLang.Interpreters where
 
 import Control.Monad.Reader
 import Control.Applicative
-import Control.Selective
 import Data.Functor.Foldable
 import Data.List (find)
 import Lens.Micro
@@ -114,24 +113,48 @@ substTop s t = shift (-1) (subst 0 (shift 1 s) t)
 -- TODO: Reimplement with `Data Term' a = Reduced a | Unreduced a`
 -- TODO: Be more consistent with `not isVal` vs `isVal`. Will casing on `Term'` make this irrelevent? Yes?
 
-eval :: Term -> Term
-eval t = runReader (para ralgebra t) []
-  where
-    ralgebra :: (Selective m, MonadReader Context m) => TermF (Term, m Term) -> m Term
-    ralgebra = \case
-      UnitF -> pure Unit
-      TruF -> pure Tru
-      FlsF -> pure Fls
-      ZF -> pure Z
-      SF (_, t1) -> S <$> t1
-      AppF (Abs _ _ t12, mT1) (v2, mT2) -> pure (substTop v2 t12)
-      AppF (_, t1) (_, t2) -> App <$> t1 <*> t2
-      AbsF v ty (t1, _) -> pure $ Abs v ty t1
-
-
-
 singleEval :: Term -> Maybe Term
-singleEval t =
+singleEval = para ralgebra
+  where
+    ralgebra :: TermF (Term, Maybe Term) -> Maybe Term
+    ralgebra = \case
+      AppF (v1@(Abs _ _ term12), _) (term2, mstepped2) -> pure $ case mstepped2 of
+        Just stepped2 -> App v1 stepped2 -- term2 reduced to stepped2
+        Nothing -> substTop term2 term12 -- source2 is fully reduced
+      AppF term1 term2 -> App <$> reduced term1 <*> source term2
+      SF term -> S <$> reduced term
+      IfF (Tru, _) term2 _ -> reduced term2
+      IfF (Fls, _) _ term3 -> reduced term3
+      CaseF (Z, _) term2 _ _ -> reduced term2
+      CaseF (S l, _) _ _ term3 | isVal l -> substTop l <$> source term3
+      CaseF l m x n -> Case <$> reduced l <*> source m <*> pure x <*> source n
+      AsF term1 _ -> reduced term1
+      LetF ty term1 term2 -> case reduced term1 of
+        Just stepped1 -> Let ty stepped1 <$> source term2
+        Nothing -> substTop <$> source term1 <*> source term2
+      FstF (Pair term1 _, _) -> pure term1
+      FstF term -> source term
+      SndF (Pair _ term2, _) -> pure term2
+      SndF term -> source term
+      PairF term1 term2 -> case reduced term1 of
+        Just stepped1 -> Pair stepped1 <$> source term2
+        Nothing -> Pair <$> source term1 <*> reduced term2
+      TupleF ts | all (isVal . fst . snd) ts -> Nothing
+      TupleF ts -> do
+        let steppedTerms :: [(Tag, Term)]
+            steppedTerms = do
+              (tag, (term, mstepped)) <- ts
+              case mstepped of
+                Just stepped -> pure (tag, stepped)
+                Nothing -> pure (tag, term)
+        pure $ Tuple steppedTerms
+      _ -> Nothing
+    reduced = snd
+    source  = pure . fst
+
+
+singleEval' :: Term -> Maybe Term
+singleEval' t =
   case t of
     (App (Abs _ _ t12) v2) | isVal v2 -> pure $ substTop v2 t12
     (App v1@Abs{} t2) -> App v1 <$> singleEval t2
@@ -158,7 +181,8 @@ singleEval t =
           evalElem ((v, t1):ts') = let t1' = (,) v <$> singleEval t1 in liftA2 (:) t1' (pure ts')
       in Tuple <$> evalElem ts
     (Record ts) -> do
-      let evalElem [] = Nothing
+      let evalElem :: [(Tag, Term)] -> Maybe [(Tag, Term)]
+          evalElem [] = Nothing
           evalElem ((v, t1):ts') | isVal t1 = let ts'' = evalElem ts' in ((:) (v, t1)) <$> ts''
           evalElem ((v, t1):ts') = let t1' = (,) v <$> singleEval t1 in liftA2 (:) t1' (pure ts')
       Record <$> evalElem ts

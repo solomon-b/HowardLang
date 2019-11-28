@@ -1,3 +1,24 @@
+(True, False, (\n:Nat.n) 1, (\n:Nat.n) 3)
+(True, False, (\n:Nat.n) 1, (\n:Nat.n) 3)
+((\n:Nat.n) 1, (\n:Nat.n) 3)
+((\n:Nat.n) 1, (\n:Nat.n) 3)
+(True, False, (\n:Nat.n) 1, (\n:Nat.n) 3)
+(True, False, (\n:Nat.n) 1)
+(True, False, (\n:Nat.n))
+(True, False)
+<True, (\n:Nat.n) 1>
+<True, (\n:Nat.n)>
+<True, False>
+(True, False)
+True
+(True, False, 1)
+let x = (\n:Nat.n) 3 in x
+let x = (\n:Nat.n) in S x
+let x = (\n:Nat.n) 3 in S x
+(\n:Nat.n) 3
+(\n:Nat.n) 1
+(\n:Nat.n)
+(n:Nat.n)
 (\n:Nat.n) 1
 (tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
 (tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
@@ -77,24 +98,3 @@ tag Branch (tag Leaf, 0, tag Branch (tag Leaf, 1, tag Leaf)) as mu.NatTree: Leaf
 (tag Cons (3, tag Cons (2, tag Cons (1, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
 :t {foo=True, bar= 7}
 {foo=True, bar= 7}
-:t let x = {foo=inr True : Sum Nat Bool, bar=4} in x
-let x = {foo=inr True : Sum Nat Bool, bar=4} in x
-let x = {foo=inr True : Sum Nat Bool, bar=4} in x
-:t let x = {foo=inr True : Sum Nat Bool, bar=4} in x
-:r
-:t let x = {foo=inr True : Sum Nat Bool, bar=4} in x
-let x = {foo=inr True : Sum Nat Bool, bar=4} in x
-let x = {foo=inr True : Sum Nat Bool} in x
-:t let x = {foo=inr True : Sum Nat Bool} in x
-:t [True, 1]
-:t True
-:t let x = {foo=inr True : Sum Nat Bool} in x
-:t let x = {foo=inr True : Sum Nat Bool} in x
-:t let x = {foo=inr True : Sum Nat Bool} in x
-:t let x = {foo=inr True : Sum Nat Bool} in x
-let x = {foo=inr True : Sum Nat Bool} in x
-let x = {foo=inr True : Sum Nat Bool} in (get x.foo)
-:t (tag Right [1, True] as (Left Unit | Right [Nat, Bool]))
-(tag Right [1, True] as (Left Unit | Right [Nat, Bool]))
-(tag Right [1, True] as (Left Unit | Right (Nat, Bool)))
-(tag Right (1, True) as (Left Unit | Right (Nat, Bool)))
