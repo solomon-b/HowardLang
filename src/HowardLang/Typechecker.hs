@@ -183,6 +183,10 @@ typeSubstTop s t = typeShift (-1) (typeSubst 0 (typeShift 1 s) t)
 ------------------------------------------------------------
 ------ TODO: IMPROVE ERROR MESSAGING MASSIVELY !!!!!! ------
 ------------------------------------------------------------
+{-
+Does this form encapsulate all type errors?
+"Type Error: Term {t} of type `{T1}` does not match expected type {T2} in expression: {TERM}."
+-}
 
 throwTypeError :: MonadError Err m => Term -> Type -> Type -> m a
 throwTypeError t1 ty1 ty2 = throwError . T . TypeError $

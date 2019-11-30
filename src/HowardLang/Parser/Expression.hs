@@ -281,6 +281,7 @@ pCase = do
 pTag :: Parser Term
 pTag = do
   rword "tag"
+  -- TODO: Should be able to parse any term inside an ascription
   t1 <- try variant <|> enum
   optType <- optional $ do
     rword "as"

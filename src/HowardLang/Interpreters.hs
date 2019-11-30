@@ -112,6 +112,8 @@ substTop s t = shift (-1) (subst 0 (shift 1 s) t)
 ------------------
 -- TODO: Reimplement with `Data Term' a = Reduced a | Unreduced a`
 -- TODO: Be more consistent with `not isVal` vs `isVal`. Will casing on `Term'` make this irrelevent? Yes?
+-- TODO: Eliminate need for `isVal`. I should be able to do this in all cases with clever use of `para` such
+-- as the `AppF` case.
 
 singleEval :: Term -> Maybe Term
 singleEval = para ralgebra
@@ -123,8 +125,9 @@ singleEval = para ralgebra
         Nothing -> substTop term2 term12 -- source2 is fully reduced
       AppF term1 term2 -> App <$> reduced term1 <*> source term2
       SF term -> S <$> reduced term
-      IfF (Tru, _) term2 _ -> reduced term2
-      IfF (Fls, _) _ term3 -> reduced term3
+      IfF (Tru, _) term2 _ -> source term2
+      IfF (Fls, _) _ term3 -> source term3
+      IfF t1 t2 t3 -> If <$> reduced t1 <*> source t2 <*> source t3
       CaseF (Z, _) term2 _ _ -> reduced term2
       CaseF (S l, _) _ _ term3 | isVal l -> substTop l <$> source term3
       CaseF l m x n -> Case <$> reduced l <*> source m <*> pure x <*> source n
@@ -148,6 +151,29 @@ singleEval = para ralgebra
                 Just stepped -> pure (tag, stepped)
                 Nothing -> pure (tag, term)
         pure $ Tuple steppedTerms
+      RecordF ts | all (isVal . fst . snd) ts -> Nothing
+      RecordF ts -> do
+        let steppedTerms :: [(Tag, Term)]
+            steppedTerms = do
+              (tag, (term, mstepped)) <- ts
+              case mstepped of
+                Just stepped -> pure (tag, stepped)
+                Nothing -> pure (tag, term)
+        pure $ Record steppedTerms
+      GetF term var -> case fst term of
+        Tuple ts -> lookup var ts
+        Record ts -> lookup var ts
+        steppedTerm | not $ isVal steppedTerm -> Get <$> reduced term <*> pure var
+        _ -> error "Type Checker failed to catch unsound term"
+      TagF tag term -> Tag tag <$> reduced term
+    --VariantCaseF term cases | isVal (fst term) -> undefined
+    --(VariantCase t1 cases) | not $ isVal t1 -> singleEval t1 >>= \t1' -> pure (VariantCase t1' cases)
+    --(VariantCase t1 cases) ->
+    --  case t1 of
+    --    (Tag tag t1') -> case find (\(tag',_,_) -> tag == tag') cases of
+    --      Just (_,_, term) -> pure $ substTop t1' term
+    --      Nothing -> Nothing
+    --    _ -> Nothing
       _ -> Nothing
     reduced = snd
     source  = pure . fst
