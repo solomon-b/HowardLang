@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 module HowardLang.Typechecker where
 
 import Control.Monad.Except
@@ -7,8 +8,10 @@ import Control.Monad.Reader
 
 import Data.Functor.Foldable
 import Data.Maybe (mapMaybe)
+import Control.Monad.State
 
 import Lens.Micro
+import Lens.Micro.TH
 
 import HowardLang.Types
 import HowardLang.PrettyPrinter
@@ -197,3 +200,66 @@ throwTypeError t1 ty1 ty2 = throwError . T . TypeError $
 
 throwTypeError' :: MonadError Err m => String -> m a
 throwTypeError' = throwError . T . TypeError
+
+
+----------------------------
+--- Constraint Generator ---
+----------------------------
+
+
+-- Blatently stolen from Chris Penner's Candor
+genFresh :: [String]
+genFresh = ((: []) <$> ['a'..'z']) ++
+  do
+    n <- [1..] :: [Int]
+    a <- ['a'..'z']
+    pure (a : show n)
+
+type Constraint = (Type, Type)
+data InferCtx  = InferCtx { _freshNames :: [String], _constraints :: [Constraint] }
+
+makeLenses ''InferCtx
+
+type InferM a = ReaderT Context (State InferCtx) a
+
+evalInferM :: Context -> InferM a -> a
+evalInferM gamma = flip evalState ctx . flip runReaderT gamma
+  where
+    ctx :: InferCtx
+    ctx = InferCtx { _freshNames = genFresh, _constraints =  [] }
+
+execInferM :: Context -> InferM a -> InferCtx
+execInferM gamma = flip execState ctx . flip runReaderT gamma
+  where
+    ctx :: InferCtx
+    ctx = InferCtx { _freshNames = genFresh, _constraints =  [] }
+
+recon :: Term -> InferM Type
+recon = \case
+  Var i -> asks (`getBinding` i)
+  Abs v ty term -> do
+    ty2 <- local ((:) (v, ty)) (recon term)
+    pure $ FuncT ty ty2
+  App t1 t2 -> do
+    ty1 <- recon t1
+    ty2 <- recon t2
+    names <- gets _freshNames
+    cnstrs <- gets _constraints
+    let freshName = head names
+    put $ InferCtx (tail names) $ (ty1, FuncT ty2 (TVar freshName)):cnstrs
+    pure $ FuncT ty2 (TVar freshName)
+  Tru -> pure BoolT
+  Fls -> pure BoolT
+  Z -> pure NatT
+  S t -> do
+    ty <- recon t
+    modify $ over constraints ((:) (ty, NatT))
+    pure NatT
+  If t1 t2 t3 -> do
+    ty1 <- recon t1
+    ty2 <- recon t2
+    ty3 <- recon t3
+    modify $ over constraints ([(ty1, BoolT), (ty2, ty3)] ++)
+    pure ty3
+
+

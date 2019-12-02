@@ -61,7 +61,9 @@ data Type
   | VariantT [(Tag, Type)]
   | FixT Varname Type
   | VarT DeBruijn
+  | TVar Varname
   deriving (Show, Data, Eq)
+
 
 makeBaseFunctor ''Term
 makeBaseFunctor ''Type

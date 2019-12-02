@@ -50,6 +50,7 @@ instance Pretty Type where
   pretty ty = runReader (f ty) []
     where
       f :: Type -> Reader Bindings String
+      f (TVar x) = pure x
       f BoolT = pure "Bool"
       f NatT  = pure "Nat"
       f UnitT = pure "Unit"

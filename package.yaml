@@ -33,6 +33,7 @@ dependencies:
 - microlens-th
 - recursion-schemes
 - selective
+- containers
 
 default-extensions:
   - InstanceSigs

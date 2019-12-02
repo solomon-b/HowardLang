@@ -1,3 +1,6 @@
+get {foo=1, bar=(\n:Nat.True) 1}.foo
+{foo=1, bar=(\n:Nat.True) 1}
+case 1 of Z=> True | (S m) => False
 case 1 of Z=> True | (S m) => False
 case Z of Z=> True | (S m) => False
 case Z of Z=> True | (S m) => False
@@ -95,6 +98,3 @@ let x = {foo=tag Nothing as (Nothing | Just Nat)} in (get x.foo)
 :t tag Nothing (Nothing | Just Nat)
 let x = {foo=tag Nothing as (Nothing | Just Nat)} in (get x.foo)
 :t let x = {foo=tag Nothing as (Nothing | Just Nat)} in (get x.foo)
-:t let x = {foo=tag Nothing as (Nothing | Just Nat)} in (get x.foo)
-let x = {foo=tag Nothing as (Nothing | Just Nat)} in (get x.foo)
-get {foo=tag Nothing as (Nothing | Just Nat)}.foo
