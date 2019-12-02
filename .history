@@ -1,3 +1,13 @@
+case 1 of Z=> True | (S m) => False
+case Z of Z=> True | (S m) => False
+case Z of Z=> True | (S m) => False
+{foo=1, bar=(\n:Nat.True) 1}
+{foo=1, bar=(\n:Nat.True)}
+{foo=1, bar=(\n:Nat.True) 1}
+(1, (\n:Nat.True) 1 )
+(1, (\n:Nat.True) 1 )
+(1, (\n:Nat.True))
+(1, True)
 tag (\u:Unit.Just 1) as Nothing | Just Nat
 tag Just 1 as Nothing | Just Nat
 tag Nothing as Nothing | Just Nat
@@ -88,13 +98,3 @@ let x = {foo=tag Nothing as (Nothing | Just Nat)} in (get x.foo)
 :t let x = {foo=tag Nothing as (Nothing | Just Nat)} in (get x.foo)
 let x = {foo=tag Nothing as (Nothing | Just Nat)} in (get x.foo)
 get {foo=tag Nothing as (Nothing | Just Nat)}.foo
-get {foo=1}.foo
-get {foo=1}.foo
-{foo=1}.foo
-{foo=tag Nothing as (Nothing | Just Nat)}.foo
-let x = {foo=tag Nothing as (Nothing | Just Nat)} in (x)
-let x = {foo=tag Nothing as (Nothing | Just Nat)} in (get x)
-let x = {foo=tag Nothing as (Nothing | Just Nat)} in (get x.foo)
-let x = {foo=Nothing as (Nothing | Just Nat)} in (get x.foo)
-:r
-:t tag Branch (tag Leaf, 0, tag Branch (tag Leaf, 1, tag Leaf)) as mu.NatTree: Leaf | Branch (NatTree, Nat, NatTree)

@@ -22,6 +22,7 @@ type Binder = String
 type Varname = String
 type DeBruijn = Int
 type ContextLength = Int
+type Pattern = (Tag, Maybe Binder, Term)
 
 data Term
   = Var DeBruijn
@@ -43,7 +44,7 @@ data Term
   | Get Term Varname
   | Record [(Varname, Term)]
   | Tag String Term
-  | VariantCase Term [(Tag, Maybe Binder, Term)]
+  | VariantCase Term [Pattern]
   | FixLet Term
   | Roll Type Term
   | Unroll Type Term

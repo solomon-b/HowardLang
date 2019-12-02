@@ -128,7 +128,7 @@ singleEval = para ralgebra
       IfF (Tru, _) term2 _ -> source term2
       IfF (Fls, _) _ term3 -> source term3
       IfF t1 t2 t3 -> If <$> reduced t1 <*> source t2 <*> source t3
-      CaseF (Z, _) term2 _ _ -> reduced term2
+      CaseF (Z, _) term2 _ _ -> pure $ viewTerm term2
       CaseF (S l, _) _ _ term3 | isVal l -> substTop l <$> source term3
       CaseF l m x n -> Case <$> reduced l <*> source m <*> pure x <*> source n
       AsF term1 _ -> reduced term1
@@ -143,92 +143,34 @@ singleEval = para ralgebra
         Just stepped1 -> Pair stepped1 <$> source term2
         Nothing -> Pair <$> source term1 <*> reduced term2
       TupleF ts | all (isVal . fst . snd) ts -> Nothing
-      TupleF ts -> do
-        let steppedTerms :: [(Tag, Term)]
-            steppedTerms = do
-              (tag, (term, mstepped)) <- ts
-              case mstepped of
-                Just stepped -> pure (tag, stepped)
-                Nothing -> pure (tag, term)
-        pure $ Tuple steppedTerms
+      TupleF ts -> pure . Tuple $ (fmap . fmap) viewTerm ts
       RecordF ts | all (isVal . fst . snd) ts -> Nothing
-      RecordF ts -> do
-        let steppedTerms :: [(Tag, Term)]
-            steppedTerms = do
-              (tag, (term, mstepped)) <- ts
-              case mstepped of
-                Just stepped -> pure (tag, stepped)
-                Nothing -> pure (tag, term)
-        pure $ Record steppedTerms
+      RecordF ts -> pure . Record $ (fmap . fmap) viewTerm ts
       GetF term var -> case fst term of
         Tuple ts -> lookup var ts
         Record ts -> lookup var ts
         steppedTerm | not $ isVal steppedTerm -> Get <$> reduced term <*> pure var
         _ -> error "Type Checker failed to catch unsound term"
       TagF tag term -> Tag tag <$> reduced term
-    --VariantCaseF term cases | isVal (fst term) -> undefined
-    --(VariantCase t1 cases) | not $ isVal t1 -> singleEval t1 >>= \t1' -> pure (VariantCase t1' cases)
-    --(VariantCase t1 cases) ->
-    --  case t1 of
-    --    (Tag tag t1') -> case find (\(tag',_,_) -> tag == tag') cases of
-    --      Just (_,_, term) -> pure $ substTop t1' term
-    --      Nothing -> Nothing
-    --    _ -> Nothing
+      VariantCaseF t1 patterns | not $ isVal . fst $ t1 ->
+        pure $ VariantCase (viewTerm t1) ((fmap . fmap) fst patterns)
+      VariantCaseF t1 patterns ->
+        case viewTerm t1 of
+          Tag tag t1' -> case find (\(tag', _, _) -> tag == tag') patterns of
+            Just (_,_, term) -> substTop t1' <$> source term
+            Nothing -> Nothing
+          _ -> Nothing
+      FixLetF t1 | not . isVal . fst $ t1 -> reduced t1
+      FixLetF (t@(Abs _ _ t2), _) -> pure $ substTop (FixLet t) t2
+      RollF ty term | not . isVal . fst $ term -> Roll ty <$> reduced term
+      UnrollF ty term | not . isVal . fst $ term -> Unroll ty <$> reduced term
+      UnrollF _ (Roll _ v1, _) -> pure v1
       _ -> Nothing
     reduced = snd
     source  = pure . fst
-
-
-singleEval' :: Term -> Maybe Term
-singleEval' t =
-  case t of
-    (App (Abs _ _ t12) v2) | isVal v2 -> pure $ substTop v2 t12
-    (App v1@Abs{} t2) -> App v1 <$> singleEval t2
-    (App t1 t2)                   -> singleEval t1 >>= \t1' -> pure $ App t1' t2
-    (If Tru t2 _)                 -> pure t2
-    (If Fls _ t3)                 -> pure t3
-    (If t1 t2 t3)                 -> singleEval t1 >>= \t1' -> pure $ If t1' t2 t3
-    (S n) | not $ isVal n         -> S <$> singleEval n
-    (Case Z m _ _)                -> pure m
-    (Case (S l) _ _ n) | isVal l  -> pure $ substTop l n
-    (Case l m x n)                -> singleEval l >>= \l' -> pure $ Case l' m x n
-    (As t1 _)                     -> pure t1
-    (Let _ v1 t2) | isVal v1      -> pure $ substTop v1 t2
-    (Let v t1 t2)                 -> singleEval t1 >>= \t1' -> pure $ Let v t1' t2
-    (Fst (Pair t1 _))             -> pure t1
-    (Fst t1)                      -> singleEval t1 >>= \t1' -> pure $ Fst t1'
-    (Snd (Pair _ t2))             -> pure t2
-    (Snd t1)                      -> singleEval t1 >>= \t1' -> pure $ Snd t1'
-    (Pair t1 t2) | not $ isVal t1 -> singleEval t1 >>= \v1 -> pure $ Pair v1 t2
-    (Pair t1 t2)                  -> singleEval t2 >>= \v2 -> pure $ Pair t1 v2
-    (Tuple ts) ->
-      let evalElem [] = Nothing
-          evalElem ((v, t1):ts') | isVal t1 = let ts'' = evalElem ts' in ((:) (v, t1)) <$> ts''
-          evalElem ((v, t1):ts') = let t1' = (,) v <$> singleEval t1 in liftA2 (:) t1' (pure ts')
-      in Tuple <$> evalElem ts
-    (Record ts) -> do
-      let evalElem :: [(Tag, Term)] -> Maybe [(Tag, Term)]
-          evalElem [] = Nothing
-          evalElem ((v, t1):ts') | isVal t1 = let ts'' = evalElem ts' in ((:) (v, t1)) <$> ts''
-          evalElem ((v, t1):ts') = let t1' = (,) v <$> singleEval t1 in liftA2 (:) t1' (pure ts')
-      Record <$> evalElem ts
-    (Get (Tuple ts) var) -> lookup var ts
-    (Get (Record ts) var) -> lookup var ts
-    (Get t1 var) | not $ isVal t1 -> singleEval t1 >>= \t1' -> pure (Get t1' var)
-    (Tag tag t1) -> singleEval t1 >>= \t1' -> pure $ Tag tag t1'
-    (VariantCase t1 cases) | not $ isVal t1 -> singleEval t1 >>= \t1' -> pure (VariantCase t1' cases)
-    (VariantCase t1 cases) ->
-      case t1 of
-        (Tag tag t1') -> case find (\(tag',_,_) -> tag == tag') cases of
-          Just (_,_, term) -> pure $ substTop t1' term
-          Nothing -> Nothing
-        _ -> Nothing
-    (FixLet t1) | not (isVal t1) -> FixLet <$> singleEval t1
-    (FixLet (Abs _ _ t2)) -> pure $ substTop t t2
-    (Roll ty t1) | not $ isVal t1 -> Roll ty <$> singleEval t1
-    (Unroll ty t1) | not $ isVal t1 -> Unroll ty <$> singleEval t1
-    (Unroll _ (Roll _ v1)) | isVal v1 -> pure v1
-    _ -> Nothing
+    viewTerm :: (Term, Maybe Term) -> Term
+    viewTerm (term, Nothing) = term
+    viewTerm (_, Just term)  = term
 
 -- Multistep Evaluation Function
 multiStepEval :: Term -> Term
