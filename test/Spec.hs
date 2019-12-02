@@ -58,7 +58,7 @@ specTypecheckYields t ty =
 specEvalYields :: Term -> Term -> SpecWith ()
 specEvalYields t1 t2 =
   it ("evals " ++ show t1 ++ " as " ++ show t2) $
-    Identity (multiStepEval t1) `shouldSatisfy` yields t2
+    Identity (multiStepEval (stripAscriptions t1)) `shouldSatisfy` yields t2
 
 checkParse :: SpecWith ()
 checkParse = describe "Test Parser" $

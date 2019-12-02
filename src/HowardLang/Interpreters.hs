@@ -174,4 +174,4 @@ singleEval = para ralgebra
 
 -- Multistep Evaluation Function
 multiStepEval :: Term -> Term
-multiStepEval t = let t' = stripAscriptions t in maybe t' multiStepEval (singleEval t')
+multiStepEval t = maybe t multiStepEval (singleEval t)
