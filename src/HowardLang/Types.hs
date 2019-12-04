@@ -64,6 +64,7 @@ data Type
   | TVar Varname
   deriving (Show, Data, Eq)
 
+data PolyType = Forall [Varname] Type
 
 makeBaseFunctor ''Term
 makeBaseFunctor ''Type
@@ -73,7 +74,7 @@ makeBaseFunctor ''Type
 
 -- | Context Types
 type Bindings = [Varname]
-type Context = [(Varname, Type)]
+type Context = [(String, Type)]
 
 updateContext :: (Varname, Type) -> Context -> Context
 updateContext t ctx = t:ctx

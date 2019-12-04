@@ -8,6 +8,11 @@ import Control.Monad.Reader
 
 import Data.Functor.Foldable
 import Data.Maybe (mapMaybe)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
+import Data.Set (Set)
+import qualified Data.Set as S
+
 import Control.Monad.State
 
 import Lens.Micro
@@ -234,6 +239,18 @@ execInferM gamma = flip execState ctx . flip runReaderT gamma
     ctx :: InferCtx
     ctx = InferCtx { _freshNames = genFresh, _constraints =  [] }
 
+evalInferM' :: [Constraint] -> InferM a -> a
+evalInferM' cstrs = flip evalState ctx . flip runReaderT []
+  where
+    ctx :: InferCtx
+    ctx = InferCtx { _freshNames = genFresh, _constraints =  cstrs }
+
+fresh :: InferM Type
+fresh = do
+  name <- gets (head . _freshNames)
+  modify (over freshNames tail)
+  pure (TVar name)
+
 recon :: Term -> InferM Type
 recon = \case
   Var i -> asks (`getBinding` i)
@@ -247,7 +264,7 @@ recon = \case
     cnstrs <- gets _constraints
     let freshName = head names
     put $ InferCtx (tail names) $ (ty1, FuncT ty2 (TVar freshName)):cnstrs
-    pure $ FuncT ty2 (TVar freshName)
+    pure $ TVar freshName
   Tru -> pure BoolT
   Fls -> pure BoolT
   Z -> pure NatT
@@ -262,4 +279,96 @@ recon = \case
     modify $ over constraints ([(ty1, BoolT), (ty2, ty3)] ++)
     pure ty3
 
+substinty :: Varname -> Type -> Type -> Type
+substinty tyX tyT tyS = f tyS
+  where
+    f tyS' = case tyS' of
+      FuncT ty1 ty2 -> FuncT (f ty1) (f ty2)
+      NatT -> NatT
+      BoolT -> BoolT
+      TVar v -> if v == tyX then tyT else TVar v
 
+applysubst :: Type -> InferM Type
+applysubst tyT = do
+  cnstrs <- gets _constraints
+  pure $ foldl (\tyS (TVar tyX, tyC2) -> substinty tyX tyC2 tyS) tyT cnstrs
+
+substinconstr :: Varname -> Type -> [Constraint] -> [Constraint]
+substinconstr tyX tyT cnstrs =
+  fmap (\(tyS1, tyS2) -> (substinty tyX tyT tyS1, substinty tyX tyT tyS2)) cnstrs
+
+unify :: [Constraint] -> [Constraint]
+unify = \case
+      [] -> []
+      (tyS, TVar tyX) : rest ->
+        if tyS == TVar tyX
+          then unify rest
+          else unify (substinconstr tyX tyS rest) ++ [(TVar tyX, tyS)]
+      (TVar tyX, tyT) : rest ->
+        if tyT == TVar tyX
+          then unify rest
+          else unify (substinconstr tyX tyT rest) ++ [(TVar tyX, tyT)]
+      (NatT, NatT) : rest -> unify rest
+      (BoolT, BoolT) : rest -> unify rest
+      (FuncT tyS1 tyS2, FuncT tyT1 tyT2) : rest -> unify ((tyS1, tyT1) : (tyS2, tyT2) : rest)
+      (tyS, tyT) : rest -> error "unsolvable constraint"
+
+substitute :: Constraint -> Type -> Type
+substitute c@(TVar a, ty) = \case
+  TVar b | a == b -> ty
+  ty1 `FuncT` ty2 -> substitute c ty1 `FuncT` substitute c ty2
+  t -> t
+
+substitutes :: [Constraint] -> Type -> Type
+substitutes cs ty = foldl (flip substitute) ty cs
+
+inferType :: Term -> Type
+inferType term = evalInferM [] $ do
+  ty <- recon term
+  cs <- gets _constraints
+  let cs' = unify cs
+  pure $ substitutes cs' ty
+
+--type Subst = Map String Type
+--
+--nullSubst :: Subst
+--nullSubst = M.empty
+--
+--compose :: Subst -> Subst -> Subst
+--compose s1 s2 = M.map (apply s1) s2 `M.union` s1
+--
+--class Substitutable a where
+--  apply :: Subst -> a -> a
+--  ftv   :: a -> S.Set String
+--
+--instance Substitutable Type where
+--  apply _ BoolT           = BoolT
+--  apply _ NatT            = NatT
+--  apply _ UnitT           = UnitT
+--  apply s t@(TVar a)      = M.findWithDefault t a s
+--  apply s (t1 `FuncT` t2) = apply s t1 `FuncT` apply s t2
+--
+--  ftv BoolT           = S.empty
+--  ftv NatT            = S.empty
+--  ftv UnitT           = S.empty
+--  ftv (TVar a)        = S.singleton a
+--  ftv (t1 `FuncT` t2) = ftv t1 `S.union` ftv t2
+--
+--instance Substitutable a => Substitutable [a] where
+--  apply = fmap . apply
+--  ftv   = foldr (S.union . ftv) S.empty
+--
+--unify :: Type -> Type -> InferM Subst
+--unify (t1 `FuncT` t2) (t1' `FuncT` t2') = do
+--  s1 <- unify t1 t1'
+--  s2 <- unify (apply s1 t2) (apply s1 t2')
+--  pure $ s2 `compose` s1
+--unify (TVar a) t = bind a t
+--unify t (TVar a) = bind a t
+--unify t1 t2 | t1 == t2 = pure nullSubst
+--unify t1 t2 = error $ "Unification failed: " ++ show t1 ++ " ~ " ++ show t2
+--
+--bind ::  String -> Type -> InferM Subst
+--bind a t | t == TVar a = return nullSubst
+--         -- | occursCheck ...
+--         | otherwise   = return $ M.singleton a t
