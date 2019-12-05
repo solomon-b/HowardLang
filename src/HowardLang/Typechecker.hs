@@ -253,7 +253,10 @@ fresh = do
 
 recon :: Term -> InferM Type
 recon = \case
-  Var i -> asks (`getBinding` i)
+  Var i -> do
+    ty <- asks (`getBinding` i)
+    modify $ over constraints id
+    pure ty
   Abs v ty term -> do
     ty2 <- local ((:) (v, ty)) (recon term)
     pure $ FuncT ty ty2
@@ -338,6 +341,7 @@ substitute :: Constraint -> Type -> Type
 substitute c@(TVar a, ty) = \case
   TVar b | a == b -> ty
   ty1 `FuncT` ty2 -> substitute c ty1 `FuncT` substitute c ty2
+  ty1 `PairT` ty2 -> substitute c ty1 `PairT` substitute c ty2
   t -> t
 
 substitutes :: [Constraint] -> Type -> Type
