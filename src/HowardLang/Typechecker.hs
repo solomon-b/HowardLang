@@ -278,6 +278,25 @@ recon = \case
     ty3 <- recon t3
     modify $ over constraints ([(ty1, BoolT), (ty2, ty3)] ++)
     pure ty3
+  Pair t1 t2 -> do
+    ty1 <- recon t1
+    ty2 <- recon t2
+    tva <- fresh
+    tvb <- fresh
+    modify $ over constraints ([(ty1, tva),(ty2, tvb)] ++)
+    pure $ PairT ty1 ty2
+  Fst term -> do
+    ty <- recon term
+    tva <- fresh
+    tvb <- fresh
+    modify $ over constraints ((:) (ty, PairT tva tvb))
+    pure tva
+  Snd term -> do
+    ty <- recon term
+    tva <- fresh
+    tvb <- fresh
+    modify $ over constraints ((:) (ty, PairT tva tvb))
+    pure tvb
 
 substinty :: Varname -> Type -> Type -> Type
 substinty tyX tyT tyS = f tyS
@@ -287,6 +306,7 @@ substinty tyX tyT tyS = f tyS
       NatT -> NatT
       BoolT -> BoolT
       TVar v -> if v == tyX then tyT else TVar v
+      PairT ty1 ty2 -> PairT (f ty1) (f ty2)
 
 applysubst :: Type -> InferM Type
 applysubst tyT = do
@@ -311,7 +331,8 @@ unify = \case
       (NatT, NatT) : rest -> unify rest
       (BoolT, BoolT) : rest -> unify rest
       (FuncT tyS1 tyS2, FuncT tyT1 tyT2) : rest -> unify ((tyS1, tyT1) : (tyS2, tyT2) : rest)
-      (tyS, tyT) : rest -> error "unsolvable constraint"
+      (PairT tyS1 tyS2, PairT tyT1 tyT2) : rest -> unify ((tyS1, tyT1) : (tyS2, tyT2) : rest)
+      (tyS, tyT) : rest -> error $ "unsolvable constraint: " ++ show tyS ++ show tyT
 
 substitute :: Constraint -> Type -> Type
 substitute c@(TVar a, ty) = \case
