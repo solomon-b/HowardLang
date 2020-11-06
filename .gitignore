@@ -1,3 +1,5 @@
 .stack-work/
 HowardLang.cabal
 *~
+/dist-newstyle/
+/.envrc

@@ -97,8 +97,8 @@ instance Exception Err
 --- Misc Helpers ---
 --------------------
 
-instance Functor ((,,) a b) where
-  fmap f (a,b,c) = (a, b, f c)
+--instance Functor ((,,) a b) where
+--  fmap f (a,b,c) = (a, b, f c)
 
 isVal :: Term -> Bool
 isVal Abs{}       = True

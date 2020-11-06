@@ -98,7 +98,7 @@ pVarT = do
   ctx <- asks _bindings
   val <- identifier
   if null ctx
-    then pure $ VarT 0
+    then customFailure $ UnboundError $ val ++ " not in scope."
     else case searchContext ctx val of
            Just i -> pure $ VarT i
            Nothing -> customFailure $ UnboundError $ val ++ " not in scope."
@@ -155,7 +155,7 @@ pVar = do
   ctx <- asks _bindings
   val <- identifier
   if null ctx
-    then pure $ Var 0
+    then customFailure $ UnboundError $ val ++ " not in scope."
     else case searchContext ctx val of
            Just i -> pure $ Var i
            Nothing -> customFailure $ UnboundError $ val ++ " not in scope."

@@ -289,17 +289,29 @@ recon = \case
     modify $ over constraints ([(ty1, tva),(ty2, tvb)] ++)
     pure $ PairT ty1 ty2
   Fst term -> do
-    ty <- recon term
+    ty  <- recon term
     tva <- fresh
     tvb <- fresh
     modify $ over constraints ((:) (ty, PairT tva tvb))
     pure tva
   Snd term -> do
-    ty <- recon term
+    ty  <- recon term
     tva <- fresh
     tvb <- fresh
     modify $ over constraints ((:) (ty, PairT tva tvb))
     pure tvb
+  Tuple terms -> do
+    let f (_, term) = do
+          ty <- recon term
+          tv <- fresh
+          modify $ over constraints ((:) (ty, tv))
+          pure tv
+    TupleT <$> traverse f terms
+  --Get term _ -> do
+  --  ty <- recon term
+  --  tv <- fresh
+  --  modify $ over constraints ((:) (ty, TupleT [tv]))
+  --  pure tv
 
 substinty :: Varname -> Type -> Type -> Type
 substinty tyX tyT tyS = f tyS
@@ -310,6 +322,7 @@ substinty tyX tyT tyS = f tyS
       BoolT -> BoolT
       TVar v -> if v == tyX then tyT else TVar v
       PairT ty1 ty2 -> PairT (f ty1) (f ty2)
+      TupleT types -> TupleT $ f <$> types
 
 applysubst :: Type -> InferM Type
 applysubst tyT = do
@@ -333,8 +346,9 @@ unify = \case
           else unify (substinconstr tyX tyT rest) ++ [(TVar tyX, tyT)]
       (NatT, NatT) : rest -> unify rest
       (BoolT, BoolT) : rest -> unify rest
-      (FuncT tyS1 tyS2, FuncT tyT1 tyT2) : rest -> unify ((tyS1, tyT1) : (tyS2, tyT2) : rest)
-      (PairT tyS1 tyS2, PairT tyT1 tyT2) : rest -> unify ((tyS1, tyT1) : (tyS2, tyT2) : rest)
+      (FuncT tyS1 tyS2, FuncT tyT1 tyT2) : rest -> unify $ (tyS1, tyT1) : (tyS2, tyT2) : rest
+      (PairT tyS1 tyS2, PairT tyT1 tyT2) : rest -> unify $ (tyS1, tyT1) : (tyS2, tyT2) : rest
+      (TupleT tyS, TupleT tyT) : rest -> unify $ zip tyS tyT ++ rest
       (tyS, tyT) : rest -> error $ "unsolvable constraint: " ++ show tyS ++ show tyT
 
 substitute :: Constraint -> Type -> Type
@@ -342,6 +356,7 @@ substitute c@(TVar a, ty) = \case
   TVar b | a == b -> ty
   ty1 `FuncT` ty2 -> substitute c ty1 `FuncT` substitute c ty2
   ty1 `PairT` ty2 -> substitute c ty1 `PairT` substitute c ty2
+  TupleT terms     ->  TupleT $ substitute c <$> terms
   t -> t
 
 substitutes :: [Constraint] -> Type -> Type
