@@ -72,8 +72,6 @@ instance MonadPlus Parser where
   mplus = (<|>)
 
 instance Text.Megaparsec.MonadParsec UnboundError String Parser where
-  failure u e               = Parser (Text.Megaparsec.failure u e)
-  fancyFailure e            = Parser (Text.Megaparsec.fancyFailure e)
   label l (Parser p)        = Parser (Text.Megaparsec.label l p)
   hidden (Parser p)         = Parser (Text.Megaparsec.hidden p)
   try (Parser p)            = Parser (Text.Megaparsec.try p)
