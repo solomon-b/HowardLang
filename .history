@@ -1,3 +1,46 @@
+clear
+x
+(tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
+(tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
+(\x : Nat. x) (S Z)
+(\x : Nat. x) Z
+\x : Nat. x
+z
+y
+x
+x
+\x : Nat. y
+\x : Nat. x
+tag Branch (tag Leaf, 0, tag Branch (tag Leaf, 1, tag Leaf)) as mu.NatTree: Leaf | Branch (NatTree, Nat, NatTree)
+:t (tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
+(tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
+let x = 2 in (\y : Nat. S y) x
+let x = 2 in (\y : Nat. S y)
+let x = 2 in x
+:t (\x : Nat. x) True
+:t (\x : Nat. x) 23
+:t \x : Nat. x
+\x : Nat. x
+:t {foo=True, bar=1}
+:t{foo=True, bar=1}
+{foo=True, bar=1}
+tag Left True as (Left Bool | Right Nat)
+tag (Left True) as (Left Bool | Right Nat)
+:t (1, True, Unit)
+(1, True, Unit)
+(1, True)
+:t Unit
+Unit
+()
+:t False
+False
+True
+0
+:t 45
+45
+3
+2
+1
 get {foo=1, bar=(\n:Nat.True) 1}.foo
 {foo=1, bar=(\n:Nat.True) 1}
 case 1 of Z=> True | (S m) => False
@@ -55,46 +98,3 @@ if: True then: 1 else: 0
 (True, False, (\n:Nat.n))
 (True, False)
 <True, (\n:Nat.n) 1>
-<True, (\n:Nat.n)>
-<True, False>
-(True, False)
-True
-(True, False, 1)
-let x = (\n:Nat.n) 3 in x
-let x = (\n:Nat.n) in S x
-let x = (\n:Nat.n) 3 in S x
-(\n:Nat.n) 3
-(\n:Nat.n) 1
-(\n:Nat.n)
-(n:Nat.n)
-(\n:Nat.n) 1
-(tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
-(tag Cons (1, tag Cons (2, tag Cons (3, tag Nil))) as mu.NatList: Nil | Cons (Nat, NatList))
-let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in isEven 5
-let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in isEven 4 
-let isZero (n : Nat) = case n of Z => True | (S m) => False in let pred (n : Nat) = case n of Z => Z | (S m) => m in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) in isEven 4
-   in letrec isEven(rec : Nat -> Bool) (n : Nat) = if: isZero n then: True else: if: isZero (pred n) then: False else: rec (pred (pred n)) 
-   in let pred (n : Nat) = case n of Z => Z | (S m) => m 
-let isZero (n : Nat) = case n of Z => True | (S m) => False 
-:t tag Just 32 as (Nothing | Just Nat)
-:t tag Nothing as (Nothing | Just Nat)
-tag Nothing as (Nothing | Just Nat)
-:t (1, True, True)
-:t (1, True)
-(1, True)
-:t 4
-4
-3
-2
-1
-:t True
-False
-True
-:t Unit
-let x = {foo=tag Nothing as (Nothing | Just Nat)} in (get x.foo)
-:t tag Nothing as (Nothing | Just Nat)
-:t tag Nothing as (Nothing | Just Nat)
-:t tag Nothing sa (Nothing | Just Nat)
-:t tag Nothing (Nothing | Just Nat)
-let x = {foo=tag Nothing as (Nothing | Just Nat)} in (get x.foo)
-:t let x = {foo=tag Nothing as (Nothing | Just Nat)} in (get x.foo)

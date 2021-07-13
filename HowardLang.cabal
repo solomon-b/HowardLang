@@ -1,0 +1,116 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.32.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 182b78d5449ccf2daef6c1586d448bf15875ca9b5b5f203346f281dba6a5b5b4
+
+name:           HowardLang
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/githubuser/HowardLang#readme>
+homepage:       https://github.com/ssbothwell/HowardLang#readme
+bug-reports:    https://github.com/ssbothwell/HowardLang/issues
+author:         Solomon Bothwell
+maintainer:     ssbothwell@gmail.com
+copyright:      2019 Solomon Bothwell
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/ssbothwell/HowardLang
+
+library
+  exposed-modules:
+      HowardLang.Types
+      HowardLang.Typechecker
+      HowardLang.Parser
+      HowardLang.PrettyPrinter
+      HowardLang.Interpreters
+      HowardLang.Repl
+  other-modules:
+      HowardLang.Parser.Combinators
+      HowardLang.Parser.Expression
+      HowardLang.Parser.Token
+      Paths_HowardLang
+  hs-source-dirs:
+      src
+  default-extensions: InstanceSigs LambdaCase DeriveFunctor DeriveFoldable GeneralizedNewtypeDeriving FlexibleContexts FlexibleInstances OverloadedStrings
+  build-depends:
+      base >=4.7 && <5
+    , containers
+    , haskeline
+    , megaparsec
+    , microlens
+    , microlens-th
+    , mtl
+    , parsers
+    , prettyprinter
+    , recursion-schemes
+    , repline
+    , selective
+    , text
+    , transformers
+  default-language: Haskell2010
+
+executable HowardLang
+  main-is: Main.hs
+  other-modules:
+      Paths_HowardLang
+  hs-source-dirs:
+      app
+  default-extensions: InstanceSigs LambdaCase DeriveFunctor DeriveFoldable GeneralizedNewtypeDeriving FlexibleContexts FlexibleInstances OverloadedStrings
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
+  build-depends:
+      HowardLang
+    , base >=4.7 && <5
+    , containers
+    , haskeline
+    , megaparsec
+    , microlens
+    , microlens-th
+    , mtl
+    , parsers
+    , prettyprinter
+    , recursion-schemes
+    , repline
+    , selective
+    , text
+    , transformers
+  default-language: Haskell2010
+
+test-suite HowardLang-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Roundtrip
+      Paths_HowardLang
+  hs-source-dirs:
+      test
+  default-extensions: InstanceSigs LambdaCase DeriveFunctor DeriveFoldable GeneralizedNewtypeDeriving FlexibleContexts FlexibleInstances OverloadedStrings
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      HowardLang
+    , base >=4.7 && <5
+    , containers
+    , haskeline
+    , hedgehog
+    , hspec
+    , megaparsec
+    , microlens
+    , microlens-th
+    , mtl
+    , parsers
+    , prettyprinter
+    , raw-strings-qq
+    , recursion-schemes
+    , repline
+    , selective
+    , text
+    , transformers
+  default-language: Haskell2010
