@@ -6,7 +6,7 @@ import Control.Monad.Except
 import Data.List
 import Text.Megaparsec.Error
 
-import System.Console.Repline
+import System.Console.Repline hiding (options)
 import System.Exit
 
 import HowardLang.Types
@@ -22,7 +22,7 @@ import HowardLang.Interpreters
 type Repl a = HaskelineT IO a
 
 repl :: IO ()
-repl = evalRepl (pure "λ> ") cmd options (Just ':') (Word completer) (pure ())
+repl = evalRepl (const $ pure "λ> ") cmd options (Just ':') Nothing (Word completer) (pure ()) (pure Exit)
 
 
 ----------------------
@@ -55,7 +55,7 @@ hoistErr (Left err) = do
 --- Commands ---
 ----------------
 
-options :: [(String, [String] -> Repl ())]
+options :: [(String, String -> Repl ())]
 options = [
     ("help", help)
   , ("h", help)
@@ -78,10 +78,10 @@ cmd input =
 quit :: a -> Repl ()
 quit _ = liftIO exitSuccess
 
-typeof :: [String] -> Repl ()
-typeof strs =
+typeof :: String -> Repl ()
+typeof str =
   let ty = do
-        term <- ascribeRolls <$> runParse pMain (unwords strs)
+        term <- ascribeRolls <$> runParse pMain str
         --pure $ show term
         pretty <$> runTypecheckM [] (typecheck term)
   in liftIO $ either (putStrLn . showE) putStrLn ty
